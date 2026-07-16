@@ -25,7 +25,10 @@ export const Route = createFileRoute("/")({
   component: Index,
   head: () => ({
     meta: [
-      { property: "og:image", content: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=1200" },
+      {
+        property: "og:image",
+        content: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=1200",
+      },
     ],
   }),
 });

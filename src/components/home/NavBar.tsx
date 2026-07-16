@@ -1,58 +1,13 @@
 import { useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import {
-  Plane,
-  Menu,
-  User,
-  Search,
-  LogOut,
-  Ticket,
-  Wallet,
-  Users,
-  Mail,
-  Wallet2,
-  Gift,
-  Settings,
-  SlidersHorizontal,
-} from "lucide-react";
-import { navItems } from "./nav-data";
+import { Plane, Menu, User, Search, LogOut } from "lucide-react";
+import { accountLinks, accountTiles, navItems } from "./nav-data";
 import { useAuthSession } from "@/hooks/use-auth-session";
 import { clearAuthSession, logoutUser } from "@/lib/auth-api";
 
 function getInitials(firstName: string, lastName: string) {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 }
-
-const accountTiles = [
-  { label: "My Bookings", to: "/my-bookings" as const, icon: Ticket },
-  { label: "Wallet", to: null, icon: Wallet },
-  { label: "Guests", to: null, icon: Users },
-  { label: "Inbox", to: null, icon: Mail, badge: true },
-];
-
-const accountLinks = [
-  {
-    label: "Travel Fund",
-    icon: Wallet2,
-    description: "View your available Travel Fund and use it to book flights or add-ons",
-  },
-  {
-    label: "My Vouchers",
-    icon: Gift,
-    description: "Redeem your travel vouchers before they expire",
-  },
-  {
-    label: "Settings",
-    icon: Settings,
-    description: "Manage your notification preferences here",
-  },
-  {
-    label: "Add-ons Preferences",
-    icon: SlidersHorizontal,
-    description:
-      "Set your preferences when you upgrade your trip with baggage, meals, seats, and other services",
-  },
-];
 
 export function NavBar({ scrolled, onMenuClick }: { scrolled: boolean; onMenuClick: () => void }) {
   const textColor = scrolled ? "text-secondary" : "text-white";
