@@ -45,9 +45,9 @@ export function SearchTextField({
   });
 
   return (
-    <label ref={containerRef} className="relative block">
-      <span className="text-lg font-medium text-muted-foreground">{label}</span>
-      <span className="mt-2 flex h-[72px] items-center rounded-md border border-border bg-white px-4 transition focus-within:border-secondary">
+    <label ref={containerRef} className="relative flex flex-col gap-1 px-5 py-4 text-left">
+      <span className="text-sm font-semibold text-muted-foreground">{label}</span>
+      <span className="flex items-center gap-2">
         <input
           value={value}
           onChange={(event) => {
@@ -60,14 +60,14 @@ export function SearchTextField({
             setIsOpen(true);
           }}
           placeholder={placeholder}
-          className="min-w-0 flex-1 bg-transparent text-xl font-medium text-[#30343b] outline-none placeholder:text-muted-foreground/50"
+          className="min-w-0 flex-1 bg-transparent text-xl font-bold text-[#30343b] outline-none placeholder:text-muted-foreground/50 placeholder:font-semibold"
         />
         {value && (
           <button
             type="button"
             onClick={() => (onClear ? onClear() : onChange(""))}
             aria-label={`Clear ${label.toLowerCase()}`}
-            className="grid h-8 w-8 place-items-center text-secondary"
+            className="grid h-8 w-8 shrink-0 place-items-center text-secondary"
           >
             <X className="h-4 w-4" />
           </button>
@@ -75,7 +75,7 @@ export function SearchTextField({
       </span>
 
       {options && isOpen && filteredOptions.length > 0 && (
-        <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-md border border-border bg-white py-1 shadow-lg">
+        <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto  border border-border bg-white py-1 shadow-lg">
           {filteredOptions.map((option) => (
             <li key={option}>
               <button
@@ -113,7 +113,7 @@ export function DateField({
   return (
     <label className="block">
       <span className="text-lg font-medium text-muted-foreground">{label}</span>
-      <span className="mt-2 flex h-[72px] items-center rounded-md border border-border bg-white px-4 transition focus-within:border-secondary">
+      <span className="mt-2 flex h-[72px] items-center  border border-border bg-white px-4 transition focus-within:border-secondary">
         <input
           type="date"
           value={value}
@@ -144,7 +144,7 @@ export function CountField({
   return (
     <label className="block">
       <span className="text-lg font-medium text-muted-foreground">{label}</span>
-      <span className="mt-2 flex h-[72px] items-center rounded-md border border-border bg-white px-4 transition focus-within:border-secondary">
+      <span className="mt-2 flex h-[72px] items-center  border border-border bg-white px-4 transition focus-within:border-secondary">
         <input
           type="number"
           min={min}

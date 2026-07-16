@@ -11,7 +11,20 @@ import {
   UserRound,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { searchFlights, type FlightSearchResult } from "@/lib/search-flight";
+import {
+  searchFlights,
+  searchRoundTripFlights,
+  type FlightSearchResult,
+} from "@/lib/search-flight";
+import {
+  createBooking,
+  createPassenger,
+  createPayment,
+  type Booking,
+  type PassengerCategory,
+  type Payment,
+  type PaymentMethod,
+} from "@/lib/booking-api";
 import { getTodayInputValue } from "@/components/search/SearchFormFields";
 import { Header } from "@/components/home/Header";
 
@@ -53,6 +66,44 @@ const steps = [
   { label: "Confirmation", icon: Check },
 ];
 
+type CheckoutStep = "flights" | "passengers" | "payment" | "confirmation";
+
+const stepIndexes: Record<CheckoutStep, number> = {
+  flights: 0,
+  passengers: 1,
+  payment: 3,
+  confirmation: 4,
+};
+
+const paymentMethods: Array<{ value: PaymentMethod; label: string; note: string }> = [
+  { value: "CARD", label: "Card", note: "Mock card authorization" },
+  { value: "GCASH", label: "GCash", note: "Create a pending wallet payment" },
+  { value: "BANK_TRANSFER", label: "Bank transfer", note: "Manual confirmation required" },
+  { value: "CASH", label: "Cash", note: "Pay at counter or branch" },
+];
+
+type PassengerForm = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  mobileNumber: string;
+  dateOfBirth: string;
+  passportNumber: string;
+  baggageDetails: string;
+  passengerCategory: PassengerCategory;
+};
+
+const createEmptyPassenger = (passengerCategory: PassengerCategory): PassengerForm => ({
+  firstName: "",
+  lastName: "",
+  email: "",
+  mobileNumber: "",
+  dateOfBirth: "",
+  passportNumber: "",
+  baggageDetails: "",
+  passengerCategory,
+});
+
 function SearchFlightPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -69,6 +120,17 @@ function SearchFlightPage() {
 
   const outbound = useFlightLegSearch();
   const returnLeg = useFlightLegSearch();
+  const [currentStep, setCurrentStep] = useState<CheckoutStep>("flights");
+  const [passengerForms, setPassengerForms] = useState<PassengerForm[]>(() =>
+    buildPassengerForms(adults, children, infants),
+  );
+  const [passengerError, setPassengerError] = useState<string | null>(null);
+  const [isSavingPassengers, setIsSavingPassengers] = useState(false);
+  const [createdBookings, setCreatedBookings] = useState<Booking[]>([]);
+  const [createdPayments, setCreatedPayments] = useState<Payment[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CARD");
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [isCreatingPayment, setIsCreatingPayment] = useState(false);
 
   useEffect(() => {
     setOutboundDate(search.departureDate ?? "");
@@ -76,34 +138,152 @@ function SearchFlightPage() {
   }, [search.departureDate, search.returnDate]);
 
   useEffect(() => {
-    if (fromLocation && toLocation && outboundDate) {
-      void outbound.run({
+    setPassengerForms(buildPassengerForms(adults, children, infants));
+    setCurrentStep("flights");
+    setPassengerError(null);
+    setPaymentError(null);
+    setCreatedBookings([]);
+    setCreatedPayments([]);
+  }, [adults, children, infants, outbound.selectedId, returnLeg.selectedId]);
+
+  useEffect(() => {
+    if (fromLocation && toLocation && outboundDate && returnLegDate) {
+      const outboundSearchId = outbound.start();
+      const returnSearchId = returnLeg.start();
+
+      void searchRoundTripFlights({
         fromLocation,
         toLocation,
         departureDate: outboundDate,
+        returnDate: returnLegDate,
         passengers: passengerCount,
-      });
+      })
+        .then((results) => {
+          outbound.resolve(outboundSearchId, results.outboundFlights);
+          returnLeg.resolve(returnSearchId, results.returnFlights);
+        })
+        .catch((err) => {
+          const message = err instanceof Error ? err.message : "Unable to search flights";
+          outbound.reject(outboundSearchId, message);
+          returnLeg.reject(returnSearchId, message);
+        });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromLocation, toLocation, outboundDate, passengerCount]);
-
-  useEffect(() => {
-    if (fromLocation && toLocation && returnLegDate) {
-      void returnLeg.run({
-        fromLocation: toLocation,
-        toLocation: fromLocation,
-        departureDate: returnLegDate,
-        passengers: passengerCount,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromLocation, toLocation, returnLegDate, passengerCount]);
+  }, [fromLocation, toLocation, outboundDate, returnLegDate, passengerCount]);
 
   const handleEditSearch = () => {
     void navigate({ to: "/" });
   };
 
   const canContinue = Boolean(outbound.selectedId && returnLeg.selectedId);
+  const selectedOutboundFlight = outbound.flights?.find(
+    (flight) => flight.id === outbound.selectedId,
+  );
+  const selectedReturnFlight = returnLeg.flights?.find(
+    (flight) => flight.id === returnLeg.selectedId,
+  );
+
+  const handlePassengerChange = (index: number, field: keyof PassengerForm, value: string) => {
+    setPassengerForms((current) =>
+      current.map((passenger, passengerIndex) =>
+        passengerIndex === index ? { ...passenger, [field]: value } : passenger,
+      ),
+    );
+    setPassengerError(null);
+  };
+
+  const handleSavePassengers = async () => {
+    if (!selectedOutboundFlight || !selectedReturnFlight) {
+      setPassengerError("Select departing and returning flights first");
+      setCurrentStep("flights");
+      return;
+    }
+
+    const invalidPassenger = passengerForms.find(
+      (passenger) => !passenger.firstName.trim() || !passenger.lastName.trim(),
+    );
+
+    if (invalidPassenger) {
+      setPassengerError("Each passenger needs a first name and last name");
+      return;
+    }
+
+    setIsSavingPassengers(true);
+    setPassengerError(null);
+
+    try {
+      const selectedFlights = [selectedOutboundFlight, selectedReturnFlight];
+      const bookings = await Promise.all(
+        selectedFlights.map((flight) =>
+          createBooking({
+            flightId: flight.id,
+            passengers: passengerForms.length,
+            flightType: "ROUND_TRIP",
+          }),
+        ),
+      );
+
+      for (const booking of bookings) {
+        await Promise.all(
+          passengerForms.map((passenger) =>
+            createPassenger({
+              bookingId: booking.id,
+              firstName: passenger.firstName.trim(),
+              lastName: passenger.lastName.trim(),
+              email: passenger.email.trim() || undefined,
+              mobileNumber: passenger.mobileNumber.trim() || undefined,
+              passengerCategory: passenger.passengerCategory,
+              baggageDetails: passenger.baggageDetails.trim() || undefined,
+              otherDetails: JSON.stringify({
+                dateOfBirth: passenger.dateOfBirth || undefined,
+                passportNumber: passenger.passportNumber.trim() || undefined,
+                outboundFlightId: selectedOutboundFlight.id,
+                returnFlightId: selectedReturnFlight.id,
+              }),
+            }),
+          ),
+        );
+      }
+
+      setCreatedBookings(bookings);
+      setCreatedPayments([]);
+      setPassengerForms(buildPassengerForms(adults, children, infants));
+      setCurrentStep("payment");
+    } catch (err) {
+      setPassengerError(err instanceof Error ? err.message : "Unable to save passenger details");
+    } finally {
+      setIsSavingPassengers(false);
+    }
+  };
+
+  const handleCreatePayments = async () => {
+    if (createdBookings.length === 0) {
+      setPaymentError("Save passenger details before creating a payment");
+      setCurrentStep("passengers");
+      return;
+    }
+
+    setIsCreatingPayment(true);
+    setPaymentError(null);
+
+    try {
+      const payments = await Promise.all(
+        createdBookings.map((booking) =>
+          createPayment({
+            bookingId: booking.id,
+            paymentMethod,
+          }),
+        ),
+      );
+
+      setCreatedPayments(payments);
+      setCurrentStep("confirmation");
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : "Unable to create payment");
+    } finally {
+      setIsCreatingPayment(false);
+    }
+  };
 
   if (!fromLocation || !toLocation || !outboundDate || !returnLegDate) {
     return (
@@ -180,31 +360,39 @@ function SearchFlightPage() {
 
         <div className="bg-primary">
           <div className="mx-auto flex max-w-[1546px] items-center justify-center gap-3 px-6 py-6 sm:px-10 lg:px-16">
-            {steps.map((step, index) => (
-              <div key={step.label} className="flex items-center">
-                <div className="flex flex-col items-center gap-1.5">
-                  <span
-                    className={`grid h-9 w-9 place-items-center rounded-full border-2 ${
-                      index === 0
-                        ? "border-secondary bg-secondary text-white"
-                        : "border-secondary/40 bg-primary text-secondary/60"
-                    }`}
-                  >
-                    <step.icon className="h-4 w-4" />
-                  </span>
-                  <span
-                    className={`text-xs font-bold ${
-                      index === 0 ? "text-secondary" : "text-secondary/60"
-                    }`}
-                  >
-                    {step.label}
-                  </span>
+            {steps.map((step, index) => {
+              const activeStepIndex = stepIndexes[currentStep];
+              const isActive = index === activeStepIndex;
+              const isComplete = index < activeStepIndex;
+
+              return (
+                <div key={step.label} className="flex items-center">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <span
+                      className={`grid h-9 w-9 place-items-center rounded-full border-2 ${
+                        isActive
+                          ? "border-secondary bg-secondary text-white"
+                          : isComplete
+                            ? "border-secondary bg-white text-secondary"
+                            : "border-secondary/40 bg-primary text-secondary/60"
+                      }`}
+                    >
+                      <step.icon className="h-4 w-4" />
+                    </span>
+                    <span
+                      className={`text-xs font-bold ${
+                        isActive || isComplete ? "text-secondary" : "text-secondary/60"
+                      }`}
+                    >
+                      {step.label}
+                    </span>
+                  </div>
+                  {index < steps.length - 1 && (
+                    <div className="mx-2 mb-5 h-px w-10 border-t-2 border-dashed border-secondary/40 sm:w-16" />
+                  )}
                 </div>
-                {index < steps.length - 1 && (
-                  <div className="mx-2 mb-5 h-px w-10 border-t-2 border-dashed border-secondary/40 sm:w-16" />
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -225,42 +413,81 @@ function SearchFlightPage() {
             </a>
           </div>
 
-          <FlightLegSection
-            id="outbound-leg"
-            heading="Select your departing flight"
-            fromLocation={fromLocation}
-            toLocation={toLocation}
-            date={outboundDate}
-            onDateChange={setOutboundDate}
-            state={outbound}
-          />
+          {currentStep === "flights" && (
+            <>
+              <FlightLegSection
+                id="outbound-leg"
+                heading="Select your departing flight"
+                fromLocation={fromLocation}
+                toLocation={toLocation}
+                date={outboundDate}
+                onDateChange={setOutboundDate}
+                state={outbound}
+              />
 
-          <FlightLegSection
-            id="return-leg"
-            heading="Select your returning flight"
-            fromLocation={toLocation}
-            toLocation={fromLocation}
-            date={returnLegDate}
-            onDateChange={setReturnLegDate}
-            state={returnLeg}
-          />
+              <FlightLegSection
+                id="return-leg"
+                heading="Select your returning flight"
+                fromLocation={toLocation}
+                toLocation={fromLocation}
+                date={returnLegDate}
+                onDateChange={setReturnLegDate}
+                state={returnLeg}
+              />
 
-          <div className="mt-10 flex items-center justify-between gap-4 border-t border-border pt-8">
-            <button
-              type="button"
-              onClick={handleEditSearch}
-              className="rounded-full border border-secondary px-8 py-3 text-sm font-extrabold text-secondary transition hover:bg-secondary/10"
-            >
-              Back
-            </button>
-            <button
-              type="button"
-              disabled={!canContinue}
-              className="rounded-full bg-secondary px-8 py-3 text-sm font-extrabold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-secondary/25"
-            >
-              Continue
-            </button>
-          </div>
+              <div className="mt-10 flex items-center justify-between gap-4 border-t border-border pt-8">
+                <button
+                  type="button"
+                  onClick={handleEditSearch}
+                  className="rounded-full border border-secondary px-8 py-3 text-sm font-extrabold text-secondary transition hover:bg-secondary/10"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  disabled={!canContinue}
+                  onClick={() => setCurrentStep("passengers")}
+                  className="rounded-full bg-secondary px-8 py-3 text-sm font-extrabold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-secondary/25"
+                >
+                  Continue
+                </button>
+              </div>
+            </>
+          )}
+
+          {currentStep === "passengers" && (
+            <PassengerDetailsStep
+              passengers={passengerForms}
+              outboundFlight={selectedOutboundFlight}
+              returnFlight={selectedReturnFlight}
+              error={passengerError}
+              isSaving={isSavingPassengers}
+              onBack={() => setCurrentStep("flights")}
+              onChange={handlePassengerChange}
+              onSubmit={handleSavePassengers}
+            />
+          )}
+
+          {currentStep === "payment" && (
+            <PaymentStep
+              bookings={createdBookings}
+              method={paymentMethod}
+              error={paymentError}
+              isCreating={isCreatingPayment}
+              onMethodChange={setPaymentMethod}
+              onBack={() => setCurrentStep("passengers")}
+              onSubmit={handleCreatePayments}
+            />
+          )}
+
+          {currentStep === "confirmation" && (
+            <ConfirmationStep
+              bookings={createdBookings}
+              payments={createdPayments}
+              onViewBookings={() => void navigate({ to: "/my-bookings" })}
+              onSearchAgain={handleEditSearch}
+            />
+          )}
         </div>
       </main>
     </div>
@@ -306,7 +533,33 @@ function useFlightLegSearch() {
     }
   };
 
-  return { flights, isSearching, error, selectedId, setSelectedId, run };
+  const start = () => {
+    const searchId = latestSearchId.current + 1;
+    latestSearchId.current = searchId;
+    setIsSearching(true);
+    setError(null);
+    setFlights(null);
+    setSelectedId(null);
+
+    return searchId;
+  };
+
+  const resolve = (searchId: number, results: FlightSearchResult[]) => {
+    if (latestSearchId.current === searchId) {
+      setFlights(results);
+      setIsSearching(false);
+    }
+  };
+
+  const reject = (searchId: number, message: string) => {
+    if (latestSearchId.current === searchId) {
+      setFlights(null);
+      setError(message);
+      setIsSearching(false);
+    }
+  };
+
+  return { flights, isSearching, error, selectedId, setSelectedId, run, start, resolve, reject };
 }
 
 function FlightLegSection({
@@ -525,6 +778,378 @@ function FlightCard({
   );
 }
 
+function PassengerDetailsStep({
+  passengers,
+  outboundFlight,
+  returnFlight,
+  error,
+  isSaving,
+  onBack,
+  onChange,
+  onSubmit,
+}: {
+  passengers: PassengerForm[];
+  outboundFlight?: FlightSearchResult;
+  returnFlight?: FlightSearchResult;
+  error: string | null;
+  isSaving: boolean;
+  onBack: () => void;
+  onChange: (index: number, field: keyof PassengerForm, value: string) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <section className="mt-10">
+      <div className="rounded-xl border border-border bg-white px-5 py-5">
+        <p className="text-sm font-semibold text-muted-foreground">Guest Details</p>
+        <h2 className="mt-1 font-display text-2xl font-extrabold text-[#30343b]">
+          Passenger information
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Add the traveler names and contact details required before issuing tickets.
+        </p>
+
+        {(outboundFlight || returnFlight) && (
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {outboundFlight && <SelectedFlightSummary label="Departing" flight={outboundFlight} />}
+            {returnFlight && <SelectedFlightSummary label="Returning" flight={returnFlight} />}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-5 grid gap-5">
+        {passengers.map((passenger, index) => (
+          <div key={index} className="rounded-xl border border-border bg-white px-5 py-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-extrabold text-[#30343b]">Passenger {index + 1}</p>
+                <p className="text-xs font-semibold text-muted-foreground">
+                  {formatPassengerCategory(passenger.passengerCategory)}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <PassengerInput
+                label="First name"
+                value={passenger.firstName}
+                onChange={(value) => onChange(index, "firstName", value)}
+                required
+              />
+              <PassengerInput
+                label="Last name"
+                value={passenger.lastName}
+                onChange={(value) => onChange(index, "lastName", value)}
+                required
+              />
+              <PassengerInput
+                label="Email"
+                type="email"
+                value={passenger.email}
+                onChange={(value) => onChange(index, "email", value)}
+              />
+              <PassengerInput
+                label="Mobile number"
+                type="tel"
+                value={passenger.mobileNumber}
+                onChange={(value) => onChange(index, "mobileNumber", value)}
+                placeholder="Optional, 11+ digits"
+              />
+              <PassengerInput
+                label="Date of birth"
+                type="date"
+                value={passenger.dateOfBirth}
+                onChange={(value) => onChange(index, "dateOfBirth", value)}
+              />
+              <PassengerInput
+                label="Passport / document no."
+                value={passenger.passportNumber}
+                onChange={(value) => onChange(index, "passportNumber", value)}
+                placeholder="Optional"
+              />
+            </div>
+
+            <label className="mt-4 block">
+              <span className="text-sm font-bold text-muted-foreground">Baggage details</span>
+              <textarea
+                value={passenger.baggageDetails}
+                onChange={(event) => onChange(index, "baggageDetails", event.target.value)}
+                placeholder="Optional baggage notes"
+                className="mt-2 min-h-24 w-full rounded-lg border border-border px-4 py-3 text-sm font-medium text-[#30343b] outline-none transition placeholder:text-muted-foreground/50 focus:border-secondary"
+              />
+            </label>
+          </div>
+        ))}
+      </div>
+
+      {error && <p className="mt-5 text-sm font-semibold text-accent">{error}</p>}
+
+      <div className="mt-10 flex items-center justify-between gap-4 border-t border-border pt-8">
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={isSaving}
+          className="rounded-full border border-secondary px-8 py-3 text-sm font-extrabold text-secondary transition hover:bg-secondary/10 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={isSaving}
+          className="rounded-full bg-secondary px-8 py-3 text-sm font-extrabold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-secondary/25"
+        >
+          {isSaving ? "Saving..." : "Save and continue to payment"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function PaymentStep({
+  bookings,
+  method,
+  error,
+  isCreating,
+  onMethodChange,
+  onBack,
+  onSubmit,
+}: {
+  bookings: Booking[];
+  method: PaymentMethod;
+  error: string | null;
+  isCreating: boolean;
+  onMethodChange: (method: PaymentMethod) => void;
+  onBack: () => void;
+  onSubmit: () => void;
+}) {
+  const totalAmount = bookings.reduce((sum, booking) => sum + Number(booking.totalAmount), 0);
+
+  return (
+    <section className="mt-10">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="rounded-xl border border-border bg-white px-5 py-5">
+          <p className="text-sm font-semibold text-muted-foreground">Payment</p>
+          <h2 className="mt-1 font-display text-2xl font-extrabold text-[#30343b]">
+            Choose a payment method
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            This creates a pending payment record for each booking. Admin or payment processing can
+            later mark it as paid, failed, or cancelled.
+          </p>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            {paymentMethods.map((paymentOption) => {
+              const selected = paymentOption.value === method;
+
+              return (
+                <button
+                  key={paymentOption.value}
+                  type="button"
+                  onClick={() => onMethodChange(paymentOption.value)}
+                  className={`rounded-lg border-2 px-4 py-4 text-left transition ${
+                    selected
+                      ? "border-secondary bg-secondary/5"
+                      : "border-border hover:border-secondary/40"
+                  }`}
+                >
+                  <span className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-extrabold text-[#30343b]">
+                      {paymentOption.label}
+                    </span>
+                    <span
+                      className={`grid h-5 w-5 place-items-center rounded-full border ${
+                        selected ? "border-secondary bg-secondary text-white" : "border-border"
+                      }`}
+                    >
+                      {selected && <Check className="h-3 w-3" />}
+                    </span>
+                  </span>
+                  <span className="mt-1 block text-xs font-semibold text-muted-foreground">
+                    {paymentOption.note}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {error && <p className="mt-5 text-sm font-semibold text-accent">{error}</p>}
+        </div>
+
+        <div className="rounded-xl border border-border bg-white px-5 py-5">
+          <p className="text-sm font-extrabold text-[#30343b]">Booking summary</p>
+          <div className="mt-4 grid gap-3">
+            {bookings.map((booking) => (
+              <div
+                key={booking.id}
+                className="rounded-lg border border-border bg-muted/30 px-4 py-3"
+              >
+                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Booking #{booking.id}
+                </p>
+                <p className="mt-1 text-sm font-extrabold text-[#30343b]">
+                  {formatPrice(String(booking.totalAmount))}
+                </p>
+                <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
+                  {booking.passengers ?? 1} passenger(s)
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 border-t border-border pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-bold text-muted-foreground">Total</span>
+              <span className="text-xl font-extrabold text-secondary">
+                {formatPrice(String(totalAmount))}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-10 flex items-center justify-between gap-4 border-t border-border pt-8">
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={isCreating}
+          className="rounded-full border border-secondary px-8 py-3 text-sm font-extrabold text-secondary transition hover:bg-secondary/10 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={isCreating || bookings.length === 0}
+          className="rounded-full bg-secondary px-8 py-3 text-sm font-extrabold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-secondary/25"
+        >
+          {isCreating ? "Creating payment..." : "Create pending payment"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function ConfirmationStep({
+  bookings,
+  payments,
+  onViewBookings,
+  onSearchAgain,
+}: {
+  bookings: Booking[];
+  payments: Payment[];
+  onViewBookings: () => void;
+  onSearchAgain: () => void;
+}) {
+  return (
+    <section className="mt-10">
+      <div className="rounded-xl border border-mint/30 bg-white px-5 py-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-muted-foreground">Confirmation</p>
+            <h2 className="mt-1 font-display text-2xl font-extrabold text-[#30343b]">
+              Payment is pending
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Your booking and passenger details were saved. Payment records are now waiting for
+              confirmation.
+            </p>
+          </div>
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-extrabold text-amber-700">
+            PENDING
+          </span>
+        </div>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          {bookings.map((booking) => {
+            const payment = payments.find((item) => item.bookingId === booking.id);
+
+            return (
+              <div
+                key={booking.id}
+                className="rounded-lg border border-border bg-muted/30 px-4 py-4"
+              >
+                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Booking #{booking.id}
+                </p>
+                <p className="mt-1 text-sm font-extrabold text-[#30343b]">
+                  {formatPrice(String(booking.totalAmount))}
+                </p>
+                <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                  Payment #{payment?.id ?? "-"} · {payment?.paymentMethod ?? "Processing"} ·{" "}
+                  {payment?.status ?? "PENDING"}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-8 flex flex-wrap justify-end gap-3">
+          <button
+            type="button"
+            onClick={onSearchAgain}
+            className="rounded-full border border-secondary px-6 py-3 text-sm font-extrabold text-secondary transition hover:bg-secondary/10"
+          >
+            Search again
+          </button>
+          <button
+            type="button"
+            onClick={onViewBookings}
+            className="rounded-full bg-secondary px-6 py-3 text-sm font-extrabold text-white transition hover:brightness-110"
+          >
+            View my bookings
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SelectedFlightSummary({ label, flight }: { label: string; flight: FlightSearchResult }) {
+  return (
+    <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
+      <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm font-extrabold text-[#30343b]">
+        {flight.fromLocation} → {flight.toLocation}
+      </p>
+      <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
+        {formatTimeOnly(flight.departureDateTime)} · {flight.airline?.name ?? "SunJet Partner"}
+      </p>
+    </div>
+  );
+}
+
+function PassengerInput({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+  required = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  placeholder?: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-bold text-muted-foreground">
+        {label}
+        {required ? " *" : ""}
+      </span>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="mt-2 h-11 w-full rounded-lg border border-border px-4 text-sm font-medium text-[#30343b] outline-none transition placeholder:text-muted-foreground/50 focus:border-secondary"
+      />
+    </label>
+  );
+}
+
 function parseString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
@@ -557,6 +1182,20 @@ function formatGuestsLabel(adults: number, children: number, infants: number) {
   }
 
   return parts.join(", ");
+}
+
+function buildPassengerForms(adults: number, children: number, infants: number) {
+  return [
+    ...Array.from({ length: adults }, () => createEmptyPassenger("ADULT")),
+    ...Array.from({ length: children }, () => createEmptyPassenger("CHILD")),
+    ...Array.from({ length: infants }, () => createEmptyPassenger("INFANT")),
+  ];
+}
+
+function formatPassengerCategory(category: PassengerCategory) {
+  if (category === "ADULT") return "Adult";
+  if (category === "CHILD") return "Child";
+  return "Infant";
 }
 
 function formatShortDate(value: string) {

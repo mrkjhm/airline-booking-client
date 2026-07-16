@@ -1,9 +1,10 @@
-import { API_BASE_URL } from "./api-config";
+import { authFetch } from "./auth-api";
 
 export type SearchFlightParams = {
   fromLocation?: string;
   toLocation?: string;
   departureDate?: string;
+  returnDate?: string;
   passengers?: number;
 };
 
@@ -29,6 +30,8 @@ export type FlightSearchResult = {
 type SearchFlightResponse = {
   message: string;
   flights: FlightSearchResult[];
+  outboundFlights?: FlightSearchResult[];
+  returnFlights?: FlightSearchResult[];
 };
 
 export async function searchFlights(params: SearchFlightParams) {
@@ -46,13 +49,15 @@ export async function searchFlights(params: SearchFlightParams) {
     searchParams.set("departureDate", params.departureDate);
   }
 
+  if (params.returnDate) {
+    searchParams.set("returnDate", params.returnDate);
+  }
+
   if (params.passengers) {
     searchParams.set("passengers", String(params.passengers));
   }
 
-  const response = await fetch(`${API_BASE_URL}/flight/search?${searchParams.toString()}`, {
-    credentials: "include",
-  });
+  const response = await authFetch(`/flight/search?${searchParams.toString()}`);
   const data = (await response.json().catch(() => ({}))) as Partial<SearchFlightResponse> & {
     message?: string;
   };
@@ -62,4 +67,42 @@ export async function searchFlights(params: SearchFlightParams) {
   }
 
   return data.flights ?? [];
+}
+
+export async function searchRoundTripFlights(params: SearchFlightParams) {
+  const searchParams = new URLSearchParams();
+
+  if (params.fromLocation?.trim()) {
+    searchParams.set("fromLocation", params.fromLocation.trim());
+  }
+
+  if (params.toLocation?.trim()) {
+    searchParams.set("toLocation", params.toLocation.trim());
+  }
+
+  if (params.departureDate) {
+    searchParams.set("departureDate", params.departureDate);
+  }
+
+  if (params.returnDate) {
+    searchParams.set("returnDate", params.returnDate);
+  }
+
+  if (params.passengers) {
+    searchParams.set("passengers", String(params.passengers));
+  }
+
+  const response = await authFetch(`/flight/search?${searchParams.toString()}`);
+  const data = (await response.json().catch(() => ({}))) as Partial<SearchFlightResponse> & {
+    message?: string;
+  };
+
+  if (!response.ok) {
+    throw new Error(data.message ?? "Unable to search flights");
+  }
+
+  return {
+    outboundFlights: data.outboundFlights ?? data.flights ?? [],
+    returnFlights: data.returnFlights ?? [],
+  };
 }

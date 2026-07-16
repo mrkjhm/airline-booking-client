@@ -2,10 +2,11 @@ import { Search, Plane, ArrowLeftRight, X, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Route as IndexRoute } from "@/routes/index";
 import { getTodayInputValue } from "@/components/search/SearchFormFields";
+import { DateRangeField } from "@/components/search/DateRangeField";
 import { useFlightLocations } from "@/hooks/use-flight-locations";
 import { SearchFlightModal } from "./SearchFlightModal";
 
-const quickPicks = ["Top Picks for You", "Puerto Princesa", "Sydney", "Hong Kong"];
+const quickPicks = ["Top Picks for You", "Cebu", "Japan", "Singapore"];
 
 function filterLocations(options: string[], query: string, excludeValues: string[]) {
   const normalizedExcluded = excludeValues
@@ -32,8 +33,11 @@ export function BookingWidget() {
   const [isToOpen, setIsToOpen] = useState(false);
   const [fromQuery, setFromQuery] = useState("");
   const [toQuery, setToQuery] = useState("");
+  const [tripType, setTripType] = useState<"roundtrip" | "oneway">("roundtrip");
+  const [isTripTypeOpen, setIsTripTypeOpen] = useState(false);
   const fromFieldRef = useRef<HTMLDivElement>(null);
   const toFieldRef = useRef<HTMLDivElement>(null);
+  const tripTypeFieldRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -42,6 +46,9 @@ export function BookingWidget() {
       }
       if (toFieldRef.current && !toFieldRef.current.contains(event.target as Node)) {
         setIsToOpen(false);
+      }
+      if (tripTypeFieldRef.current && !tripTypeFieldRef.current.contains(event.target as Node)) {
+        setIsTripTypeOpen(false);
       }
     };
 
@@ -78,14 +85,14 @@ export function BookingWidget() {
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
-      <div className="relative z-10 -mt-16 rounded-2xl bg-black/15 p-4 shadow-[0_20px_60px_-15px_rgba(10,23,48,0.45)] backdrop-blur-sm sm:-mt-20 sm:p-6">
+      <div className="relative z-10 -mt-16 rounded-2xl bg-black/25 p-4 shadow-[0_20px_60px_-15px_rgba(10,23,48,0.45)] backdrop-blur-sm sm:-mt-20 sm:p-6">
         <div className="flex flex-wrap items-center gap-2">
           {quickPicks.map((p, i) => (
             <button
               key={p}
               type="button"
               onClick={() => handleQuickPick(p)}
-              className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
+              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
                 i === 0 || toLocation === p
                   ? "bg-primary text-secondary"
                   : "bg-white text-secondary hover:bg-white/90"
@@ -104,19 +111,51 @@ export function BookingWidget() {
             <span className="font-display text-base font-extrabold text-white">Flight</span>
           </div>
 
-          <button
-            type="button"
-            className="flex items-center gap-1 text-sm font-bold text-white hover:text-primary"
-          >
-            Round-trip <ChevronDown className="h-3.5 w-3.5" />
-          </button>
+          <div ref={tripTypeFieldRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setIsTripTypeOpen((open) => !open)}
+              className="flex items-center gap-1 text-sm font-semibold text-white hover:text-primary"
+            >
+              {tripType === "roundtrip" ? "Round-trip" : "One-way"}{" "}
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+
+            {isTripTypeOpen && (
+              <ul className="absolute right-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-md border border-border bg-white py-1 shadow-lg">
+                {(["roundtrip", "oneway"] as const).map((type) => (
+                  <li key={type}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTripType(type);
+                        setIsTripTypeOpen(false);
+                        if (type === "oneway") {
+                          setReturnDate("");
+                        }
+                      }}
+                      className={`block w-full px-4 py-2 text-left text-sm font-medium hover:bg-muted ${
+                        tripType === type ? "text-primary" : "text-slate-800"
+                      }`}
+                    >
+                      {type === "roundtrip" ? "Round-trip" : "One-way"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
         <form
           onSubmit={handleSubmit}
           className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-stretch"
         >
-          <div className="grid flex-1 grid-cols-2 rounded-2xl bg-white sm:grid-cols-4">
+          <div
+            className={`grid flex-1 grid-cols-2 rounded-2xl bg-white ${
+              tripType === "roundtrip" ? "sm:grid-cols-4" : "sm:grid-cols-3"
+            }`}
+          >
             <div ref={fromFieldRef} className="relative flex flex-col px-5 py-4 text-left">
               <span className="flex items-center justify-between gap-2 text-xs font-semibold text-muted-foreground">
                 From
@@ -148,7 +187,7 @@ export function BookingWidget() {
                   setIsFromOpen(true);
                 }}
                 placeholder="Origin city"
-                className="mt-1 bg-transparent font-display text-base font-extrabold text-slate-800 outline-none placeholder:text-muted-foreground/50"
+                className="mt-1 bg-transparent font-display text-base font-semibold text-slate-800 outline-none placeholder:text-muted-foreground/50"
               />
 
               {isFromOpen && fromOptions.length > 0 && (
@@ -214,7 +253,7 @@ export function BookingWidget() {
                   setIsToOpen(true);
                 }}
                 placeholder="Select Destination"
-                className="mt-1 bg-transparent font-display text-base font-extrabold text-slate-800 outline-none placeholder:text-muted-foreground/50"
+                className="mt-1 bg-transparent font-display text-base font-semibold text-slate-800 outline-none placeholder:text-muted-foreground/50"
               />
 
               {isToOpen && toOptions.length > 0 && (
@@ -229,7 +268,7 @@ export function BookingWidget() {
                           setIsToOpen(false);
                           setError(null);
                         }}
-                        className="block w-full px-4 py-2 text-left text-sm font-medium text-slate-800 hover:bg-muted"
+                        className="block w-full px-4 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-muted"
                       >
                         {option}
                       </button>
@@ -239,39 +278,25 @@ export function BookingWidget() {
               )}
             </div>
 
-            <div className="flex flex-col border-t border-border px-5 py-4 text-left sm:border-l sm:border-t-0">
-              <span className="text-xs font-semibold text-muted-foreground">Depart</span>
-              <input
-                type="date"
-                value={departureDate}
-                min={getTodayInputValue()}
-                onChange={(event) => {
-                  setDepartureDate(event.target.value);
-                  setError(null);
-                }}
-                className="mt-1 bg-transparent font-display text-base font-extrabold text-slate-800 outline-none"
-              />
-            </div>
-
-            <div className="flex flex-col border-t border-border px-5 py-4 text-left sm:border-l sm:border-t-0">
-              <span className="text-xs font-semibold text-muted-foreground">Return</span>
-              <input
-                type="date"
-                value={returnDate}
-                min={departureDate || getTodayInputValue()}
-                placeholder="Returning on"
-                onChange={(event) => {
-                  setReturnDate(event.target.value);
-                  setError(null);
-                }}
-                className="mt-1 bg-transparent font-display text-base font-extrabold text-slate-800 outline-none placeholder:text-muted-foreground/50"
-              />
-            </div>
+            <DateRangeField
+              variant="widget"
+              tripType={tripType}
+              departureDate={departureDate}
+              returnDate={returnDate}
+              onChangeDeparture={(value) => {
+                setDepartureDate(value);
+                setError(null);
+              }}
+              onChangeReturn={(value) => {
+                setReturnDate(value);
+                setError(null);
+              }}
+            />
           </div>
 
           <button
             type="submit"
-            className="flex items-center justify-center gap-2 rounded-full bg-secondary px-8 py-4 font-display text-base font-extrabold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+            className="flex items-center justify-center gap-2 rounded-full bg-secondary px-8 py-4 font-display text-base font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
           >
             <Search className="h-4 w-4" />
             Search flights
