@@ -1,13 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  AlertCircle,
+  AlertTriangle,
   ArrowRight,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   CreditCard,
+  Loader2,
   Luggage,
   Plane,
+  SearchX,
   UserRound,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -608,21 +612,25 @@ function FlightLegSection({
 
       <div className="mt-4">
         {state.isSearching && (
-          <p className="rounded-lg border border-border bg-white px-6 py-10 text-center text-sm font-semibold text-muted-foreground">
-            Searching flights...
-          </p>
+          <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-white px-6 py-14 text-center">
+            <Loader2 className="h-6 w-6 animate-spin text-secondary" />
+            <p className="text-sm font-semibold text-muted-foreground">Searching flights...</p>
+          </div>
         )}
 
         {!state.isSearching && state.error && (
-          <p className="rounded-lg border border-border bg-white px-6 py-10 text-center text-sm font-semibold text-accent">
-            {state.error}
-          </p>
+          <div className="flex flex-col items-center gap-2 rounded-lg border border-accent/30 bg-accent/5 px-6 py-10 text-center">
+            <AlertCircle className="h-6 w-6 text-accent" />
+            <p className="text-sm font-bold text-accent">Something went wrong</p>
+            <p className="text-sm text-muted-foreground">{state.error}</p>
+          </div>
         )}
 
         {!state.isSearching && !state.error && state.flights?.length === 0 && (
-          <div className="rounded-lg border border-border bg-white px-6 py-10 text-center">
+          <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-white px-6 py-14 text-center">
+            <SearchX className="h-6 w-6 text-muted-foreground" />
             <p className="text-sm font-bold text-[#30343b]">No flights found</p>
-            <p className="mt-1 text-sm text-muted-foreground">Try a different date.</p>
+            <p className="text-sm text-muted-foreground">Try a different date.</p>
           </div>
         )}
 
@@ -666,7 +674,7 @@ function DateCarousel({
         type="button"
         onClick={() => shiftWindow(-1)}
         aria-label="Earlier dates"
-        className="grid h-full w-10 shrink-0 place-items-center self-stretch text-muted-foreground hover:text-secondary"
+        className="flex w-10 shrink-0 items-center justify-center self-stretch text-muted-foreground hover:text-secondary"
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
@@ -705,7 +713,7 @@ function DateCarousel({
         type="button"
         onClick={() => shiftWindow(1)}
         aria-label="Later dates"
-        className="grid h-full w-10 shrink-0 place-items-center self-stretch text-muted-foreground hover:text-secondary"
+        className="flex w-10 shrink-0 items-center justify-center self-stretch text-muted-foreground hover:text-secondary"
       >
         <ChevronRight className="h-4 w-4" />
       </button>
@@ -733,12 +741,17 @@ function FlightCard({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const lowSeats = flight.seatsAvailable > 0 && flight.seatsAvailable <= 5;
+
   return (
     <button
       type="button"
       onClick={onSelect}
+      aria-pressed={selected}
       className={`grid gap-4 rounded-lg border-2 bg-white px-5 py-5 text-left shadow-sm transition sm:grid-cols-[1fr_auto] sm:items-center ${
-        selected ? "border-secondary" : "border-border hover:border-secondary/40"
+        selected
+          ? "border-secondary ring-2 ring-secondary/20"
+          : "border-border hover:border-secondary/40"
       }`}
     >
       <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr_auto] sm:items-center">
@@ -747,7 +760,7 @@ function FlightCard({
             {formatTimeOnly(flight.departureDateTime)}
           </p>
           <p className="text-xs font-semibold text-muted-foreground">
-            Depart - {flight.fromLocation}
+            Depart · {flight.fromLocation}
           </p>
         </div>
 
@@ -758,21 +771,35 @@ function FlightCard({
             {formatTimeOnly(flight.arrivalDateTime)}
           </p>
           <p className="text-xs font-semibold text-muted-foreground">
-            Arrive - {flight.toLocation}
+            Arrive · {flight.toLocation}
           </p>
         </div>
 
         <div className="text-sm text-muted-foreground">
-          <p className="font-semibold">
-            {formatDuration(flight.departureDateTime, flight.arrivalDateTime)}
+          <p className="font-semibold text-[#30343b]">
+            {formatDuration(flight.departureDateTime, flight.arrivalDateTime)}{" "}
+            <span className="font-medium text-muted-foreground">· Non-stop</span>
           </p>
           <p className="text-xs">{flight.airline?.name ?? "SunJet Partner"}</p>
         </div>
       </div>
 
       <div className="flex items-center justify-between gap-4 border-t border-border pt-4 sm:flex-col sm:items-end sm:border-t-0 sm:pt-0">
-        <p className="text-xs font-semibold text-muted-foreground">All-in Fare/guest</p>
+        <div className="sm:text-right">
+          <p className="text-xs font-semibold text-muted-foreground">All-in Fare/guest</p>
+          {lowSeats && (
+            <p className="mt-0.5 flex items-center gap-1 text-xs font-bold text-amber-600 sm:justify-end">
+              <AlertTriangle className="h-3 w-3" />
+              Only {flight.seatsAvailable} seat{flight.seatsAvailable === 1 ? "" : "s"} left
+            </p>
+          )}
+        </div>
         <p className="text-xl font-extrabold text-secondary">{formatPrice(flight.price)}</p>
+        {selected && (
+          <span className="flex items-center gap-1 text-xs font-extrabold text-secondary sm:mt-1">
+            <Check className="h-3.5 w-3.5" /> Selected
+          </span>
+        )}
       </div>
     </button>
   );
@@ -805,7 +832,8 @@ function PassengerDetailsStep({
           Passenger information
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Add the traveler names and contact details required before issuing tickets.
+          Add the traveler names and contact details required before issuing tickets.{" "}
+          <span className="font-semibold text-[#30343b]">Fields marked * are required.</span>
         </p>
 
         {(outboundFlight || returnFlight) && (
@@ -881,7 +909,12 @@ function PassengerDetailsStep({
         ))}
       </div>
 
-      {error && <p className="mt-5 text-sm font-semibold text-accent">{error}</p>}
+      {error && (
+        <div className="mt-5 flex items-center gap-2 rounded-lg border border-accent/30 bg-accent/5 px-4 py-3">
+          <AlertCircle className="h-4 w-4 shrink-0 text-accent" />
+          <p className="text-sm font-semibold text-accent">{error}</p>
+        </div>
+      )}
 
       <div className="mt-10 flex items-center justify-between gap-4 border-t border-border pt-8">
         <button
@@ -972,7 +1005,12 @@ function PaymentStep({
             })}
           </div>
 
-          {error && <p className="mt-5 text-sm font-semibold text-accent">{error}</p>}
+          {error && (
+            <div className="mt-5 flex items-center gap-2 rounded-lg border border-accent/30 bg-accent/5 px-4 py-3">
+              <AlertCircle className="h-4 w-4 shrink-0 text-accent" />
+              <p className="text-sm font-semibold text-accent">{error}</p>
+            </div>
+          )}
         </div>
 
         <div className="rounded-xl border border-border bg-white px-5 py-5">
