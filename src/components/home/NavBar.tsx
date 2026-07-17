@@ -16,7 +16,9 @@ export function NavBar({ scrolled, onMenuClick }: { scrolled: boolean; onMenuCli
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [openNavItem, setOpenNavItem] = useState<string | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleLogoClick = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
@@ -38,6 +40,15 @@ export function NavBar({ scrolled, onMenuClick }: { scrolled: boolean; onMenuCli
     closeTimer.current = setTimeout(() => setAccountMenuOpen(false), 150);
   };
 
+  const openNavDropdown = (label: string) => {
+    if (navCloseTimer.current) clearTimeout(navCloseTimer.current);
+    setOpenNavItem(label);
+  };
+
+  const scheduleCloseNavDropdown = () => {
+    navCloseTimer.current = setTimeout(() => setOpenNavItem(null), 150);
+  };
+
   const handleLogout = async () => {
     setAccountMenuOpen(false);
     await logoutUser();
@@ -47,9 +58,11 @@ export function NavBar({ scrolled, onMenuClick }: { scrolled: boolean; onMenuCli
 
   const navLinkClass = `relative py-2 text-sm font-bold transition-colors duration-300 after:absolute after:-bottom-0.5 after:left-0 after:h-0.5 after:w-0 after:rounded-full after:bg-primary after:transition-all after:duration-300 hover:text-primary hover:after:w-full ${textColor}`;
 
+  const activeNavItem = navItems.find((item) => item.label === openNavItem) ?? null;
+
   return (
     <div
-      className={`mx-auto flex max-w-[1400px] items-center justify-between px-6 py-3 transition-colors duration-300 ${
+      className={`relative mx-auto flex max-w-[1400px] items-center justify-between px-6 py-3 transition-colors duration-300 ${
         scrolled ? "border-b border-border" : "border-b border-transparent bg-transparent"
       }`}
     >
@@ -71,17 +84,59 @@ export function NavBar({ scrolled, onMenuClick }: { scrolled: boolean; onMenuCli
         </span>
       </a>
 
-      <div className="hidden flex-1 items-center justify-center gap-8 lg:flex">
+      <div
+        className="hidden flex-1 items-center justify-center gap-8 lg:flex"
+        onMouseLeave={scheduleCloseNavDropdown}
+      >
         {navItems.map((l) => (
-          <a key={l.label} href={l.href} className={navLinkClass}>
+          <a
+            key={l.label}
+            href={l.href}
+            onMouseEnter={() => openNavDropdown(l.label)}
+            className={`${navLinkClass} ${openNavItem === l.label ? "text-primary after:w-full" : ""}`}
+          >
             {l.label}
           </a>
         ))}
+
+        {activeNavItem && (
+          <div
+            onMouseEnter={() => openNavDropdown(activeNavItem.label)}
+            onMouseLeave={scheduleCloseNavDropdown}
+            className="absolute left-1/2 top-[calc(100%)] z-50 w-screen -translate-x-1/2 border border-border bg-white shadow-2xl"
+          >
+            <div className="mx-auto max-w-[1400px] px-8 py-7">
+              <div className="flex items-start justify-between gap-10">
+                <p className="text-sm font-medium text-muted-foreground">
+                  {activeNavItem.description}
+                </p>
+              </div>
+
+              <div className="mt-8 grid grid-cols-3 gap-x-10 gap-y-6 border-t border-border pt-6">
+                {activeNavItem.children.map((child) => (
+                  <a
+                    key={child.label}
+                    href={child.href}
+                    className="flex items-start gap-3 text-left"
+                  >
+                    <child.icon className="mt-0.5 h-5 w-5 shrink-0 text-secondary" />
+                    <span>
+                      <span className="block text-sm font-bold text-secondary">{child.label}</span>
+                      <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                        {child.description}
+                      </span>
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-5">
         <div
-          className="relative hidden self-stretch items-center sm:flex"
+          className="hidden self-stretch items-center sm:flex"
           onMouseEnter={openAccountMenu}
           onMouseLeave={scheduleCloseAccountMenu}
         >
@@ -100,8 +155,8 @@ export function NavBar({ scrolled, onMenuClick }: { scrolled: boolean; onMenuCli
           </button>
 
           {accountMenuOpen && (
-            <div className="absolute right-0 top-[calc(100%+12px)] z-50 w-[850px] max-w-[90vw] border border-border bg-white shadow-2xl">
-              <div className="px-8 py-7">
+            <div className="absolute left-1/2 top-[calc(100%)] z-50 w-screen -translate-x-1/2 border border-border bg-white shadow-2xl">
+              <div className="mx-auto max-w-[1400px] px-8 py-7">
                 <div className="flex items-start justify-between gap-10">
                   <div className="flex flex-wrap gap-10">
                     {accountTiles.map((tile) => {

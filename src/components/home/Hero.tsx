@@ -35,7 +35,7 @@ export function Hero() {
             />
           ))}
         </div>
-        <div className="absolute inset-0 bg-linear-to-t from-abyss via-abyss/40 to-abyss/10" />
+
         <div className="absolute inset-0 flex flex-col justify-center px-6">
           <div className="mx-auto w-full max-w-[1400px]">
             <span className="inline-flex w-fit items-center gap-2 rounded-full bg-primary/95 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-primary-foreground">

@@ -82,39 +82,41 @@ export function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => 
           <ul className="space-y-1">
             {navItems.map((item) => (
               <li key={item.label} className="border-b border-border last:border-0">
-                {item.children ? (
-                  <>
-                    <button
-                      onClick={() => setOpenItem(openItem === item.label ? null : item.label)}
-                      className="flex w-full items-center justify-between py-3 text-left text-sm font-semibold text-secondary"
-                    >
-                      {item.label}
-                      <ChevronDown
-                        className={`h-4 w-4 transition-transform duration-200 ${openItem === item.label ? "rotate-180" : ""}`}
-                      />
-                    </button>
-                    <ul
-                      className={`overflow-hidden transition-all duration-200 ${
-                        openItem === item.label ? "max-h-48 pb-2" : "max-h-0"
-                      }`}
-                    >
-                      {item.children.map((c) => (
-                        <li key={c.label}>
-                          <a
-                            href={c.href}
-                            className="block py-2 pl-3 text-sm text-muted-foreground hover:text-secondary"
-                          >
-                            {c.label}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : (
-                  <a href={item.href} className="block py-3 text-sm font-semibold text-secondary">
-                    {item.label}
-                  </a>
-                )}
+                <button
+                  onClick={() => setOpenItem(openItem === item.label ? null : item.label)}
+                  className="flex w-full items-center justify-between py-3 text-left text-sm font-semibold text-secondary"
+                >
+                  {item.label}
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform duration-200 ${openItem === item.label ? "rotate-180" : ""}`}
+                  />
+                </button>
+                <div
+                  className={`overflow-hidden transition-all duration-200 ${
+                    openItem === item.label ? "max-h-[640px] pb-3" : "max-h-0"
+                  }`}
+                >
+                  <p className="pb-3 text-xs leading-relaxed text-muted-foreground">
+                    {item.description}
+                  </p>
+                  <ul className="flex flex-col gap-3">
+                    {item.children.map((c) => (
+                      <li key={c.label}>
+                        <a href={c.href} className="flex items-start gap-3 text-left">
+                          <c.icon className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
+                          <span>
+                            <span className="block text-sm font-bold text-secondary">
+                              {c.label}
+                            </span>
+                            <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                              {c.description}
+                            </span>
+                          </span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </li>
             ))}
           </ul>
