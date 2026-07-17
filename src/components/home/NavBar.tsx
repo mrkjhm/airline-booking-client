@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useRef, useState, type MouseEvent } from "react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Plane, Menu, User, Search, LogOut } from "lucide-react";
 import { accountLinks, accountTiles, navItems } from "./nav-data";
 import { useAuthSession } from "@/hooks/use-auth-session";
@@ -14,8 +14,20 @@ export function NavBar({ scrolled, onMenuClick }: { scrolled: boolean; onMenuCli
   const subTextColor = scrolled ? "text-muted-foreground" : "text-white/70";
   const session = useAuthSession();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleLogoClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+
+    if (pathname === "/") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    void navigate({ to: "/" }).then(() => window.scrollTo({ top: 0 }));
+  };
 
   const openAccountMenu = () => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
@@ -41,7 +53,7 @@ export function NavBar({ scrolled, onMenuClick }: { scrolled: boolean; onMenuCli
         scrolled ? "border-b border-border" : "border-b border-transparent bg-transparent"
       }`}
     >
-      <a href="/" className="flex items-center gap-2.5">
+      <a href="/" onClick={handleLogoClick} className="flex items-center gap-2.5">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
           <Plane className="h-5 w-5 -rotate-45" strokeWidth={2.5} />
         </div>

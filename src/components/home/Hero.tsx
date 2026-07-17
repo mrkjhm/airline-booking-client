@@ -1,16 +1,40 @@
+import { useEffect, useState } from "react";
 import { Tag } from "lucide-react";
-import planeImg from "@/assets/plane.jpg";
+import heroBeachImg from "@/assets/hero-beach.jpg";
+import heroCityImg from "@/assets/hero-city.jpg";
+import heroPlaneImg from "@/assets/hero-plane.jpg";
+import heroCoastImg from "@/assets/hero-coast.jpg";
 import { BookingWidget } from "./BookingWidget";
 
+const heroSlideshowImages = [heroPlaneImg, heroBeachImg, heroCityImg, heroCoastImg];
+const HERO_SLIDE_INTERVAL_MS = 6000;
+
 export function Hero() {
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % heroSlideshowImages.length);
+    }, HERO_SLIDE_INTERVAL_MS);
+
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <section className="relative">
-      <div className="relative h-[420px] w-full overflow-hidden sm:h-[480px] md:h-[580px]">
-        <img
-          src={planeImg}
-          alt="Aircraft crossing the sky"
-          className="h-full w-full object-cover"
-        />
+      <div className="relative h-[420px] w-full overflow-hidden sm:h-[480px] md:h-[650px]">
+        <div className="absolute inset-0" aria-hidden="true">
+          {heroSlideshowImages.map((src, index) => (
+            <img
+              key={src}
+              src={src}
+              alt=""
+              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-2500 ease-in-out will-change-[opacity] ${
+                index === activeSlide ? "opacity-100" : "opacity-0"
+              }`}
+            />
+          ))}
+        </div>
         <div className="absolute inset-0 bg-linear-to-t from-abyss via-abyss/40 to-abyss/10" />
         <div className="absolute inset-0 flex flex-col justify-center px-6">
           <div className="mx-auto w-full max-w-[1400px]">

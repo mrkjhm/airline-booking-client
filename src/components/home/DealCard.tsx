@@ -1,6 +1,7 @@
 import { formatDealPrice } from "@/lib/flight-deals";
 
 export type Deal = {
+  fromLocation: string;
   city: string;
   price: number;
   img: string;

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState, type MouseEvent } from "react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Plane, X, ChevronDown, User, LogOut } from "lucide-react";
 import { accountLinks, accountTiles, navItems } from "./nav-data";
 import { useAuthSession } from "@/hooks/use-auth-session";
@@ -14,6 +14,7 @@ export function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => 
   const [accountOpen, setAccountOpen] = useState(false);
   const session = useAuthSession();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   useEffect(() => {
     if (!open) {
@@ -27,6 +28,18 @@ export function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => 
     clearAuthSession();
     onClose();
     await navigate({ to: "/" });
+  };
+
+  const handleLogoClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    onClose();
+
+    if (pathname === "/") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    void navigate({ to: "/" }).then(() => window.scrollTo({ top: 0 }));
   };
 
   return (
@@ -43,7 +56,7 @@ export function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => 
         }`}
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <div className="flex items-center gap-2.5">
+          <a href="/" onClick={handleLogoClick} className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
               <Plane className="h-4 w-4 -rotate-45" strokeWidth={2.5} />
             </div>
@@ -55,7 +68,7 @@ export function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => 
                 Fly more, pay less
               </span>
             </span>
-          </div>
+          </a>
           <button
             onClick={onClose}
             aria-label="Close menu"

@@ -3,15 +3,23 @@ import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Armchair,
+  Building2,
+  Calendar,
   CreditCard,
+  Hash,
   Mail,
   Phone,
+  Plane,
+  PlaneLanding,
   PlaneTakeoff,
+  Repeat,
   Ticket as TicketIcon,
+  Users,
   UserRound,
 } from "lucide-react";
 import { Header } from "@/components/home/Header";
 import { Footer } from "@/components/home/Footer";
+import { MetaChip } from "@/components/booking/MetaChip";
 import { useAuthSession } from "@/hooks/use-auth-session";
 import {
   cancelBooking,
@@ -25,6 +33,7 @@ import {
   parsePassengerOtherDetails,
   paymentMethodLabels,
   paymentStatusStyles,
+  statusBorderStyles,
   statusStyles,
 } from "@/lib/booking-format";
 
@@ -129,31 +138,62 @@ function BookingDetailPage() {
 
         {booking && (
           <div className="mt-6 flex flex-col gap-6">
-            <section className="rounded-2xl border border-border bg-card px-6 py-5">
+            <section
+              className={`rounded-2xl border border-l-4 border-border bg-card px-6 py-5 ${statusBorderStyles[booking.status]}`}
+            >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="flex items-center gap-2 text-lg font-extrabold text-secondary">
-                    <PlaneTakeoff className="h-5 w-5 text-primary" />
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/15 text-secondary">
+                      <PlaneTakeoff className="h-4 w-4" />
+                    </span>
                     {booking.flight
                       ? `${booking.flight.fromLocation} → ${booking.flight.toLocation}`
                       : `Booking #${booking.id}`}
                   </p>
+
                   {booking.flight?.airline && (
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                      <Building2 className="h-3.5 w-3.5 shrink-0" />
                       {booking.flight.airline.name}
                     </p>
                   )}
+
                   {booking.flight && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Departs {formatDate(booking.flight.departureDateTime)} · Arrives{" "}
-                      {formatDate(booking.flight.arrivalDateTime)}
-                    </p>
+                    <div className="mt-3 flex max-w-sm items-center gap-2">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-secondary">
+                          {formatDate(booking.flight.departureDateTime)}
+                        </span>
+                        <span className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          <PlaneTakeoff className="h-3 w-3" /> Departure
+                        </span>
+                      </div>
+                      <div className="flex flex-1 items-center gap-1 text-border">
+                        <span className="h-px flex-1 border-t border-dashed border-border" />
+                        <Plane className="h-3.5 w-3.5 shrink-0 text-primary" />
+                        <span className="h-px flex-1 border-t border-dashed border-border" />
+                      </div>
+                      <div className="flex flex-col text-right">
+                        <span className="text-sm font-bold text-secondary">
+                          {formatDate(booking.flight.arrivalDateTime)}
+                        </span>
+                        <span className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Arrival <PlaneLanding className="h-3 w-3" />
+                        </span>
+                      </div>
+                    </div>
                   )}
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Booking #{booking.id} · Booked {formatDate(booking.bookingDate)} ·{" "}
-                    {booking.passengers ?? 1} passenger(s) ·{" "}
-                    {booking.flightType === "ROUND_TRIP" ? "Round trip" : "One way"}
-                  </p>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                    <MetaChip icon={Hash} label={`Booking #${booking.id}`} />
+                    <MetaChip icon={Calendar} label={`Booked ${formatDate(booking.bookingDate)}`} />
+                    <MetaChip icon={Users} label={`${booking.passengers ?? 1} passenger(s)`} />
+                    <MetaChip
+                      icon={Repeat}
+                      label={booking.flightType === "ROUND_TRIP" ? "Round trip" : "One way"}
+                    />
+                  </div>
                 </div>
 
                 <div className="flex flex-row items-center gap-3 sm:flex-col sm:items-end">

@@ -34,6 +34,19 @@ type SearchFlightResponse = {
   returnFlights?: FlightSearchResult[];
 };
 
+export async function getAllFlights(): Promise<FlightSearchResult[]> {
+  const response = await authFetch("/flight/");
+  const data = (await response.json().catch(() => ({}))) as Partial<SearchFlightResponse> & {
+    message?: string;
+  };
+
+  if (!response.ok) {
+    throw new Error(data.message ?? "Unable to fetch flights");
+  }
+
+  return data.flights ?? [];
+}
+
 export async function searchFlights(params: SearchFlightParams) {
   const searchParams = new URLSearchParams();
 

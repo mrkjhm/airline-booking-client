@@ -85,7 +85,7 @@ export function BookingWidget() {
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
-      <div className="relative z-10 -mt-16 rounded-2xl bg-black/25 p-4 shadow-[0_20px_60px_-15px_rgba(10,23,48,0.45)] backdrop-blur-sm sm:-mt-20 sm:p-6">
+      <div className="relative z-10 -mt-16 rounded-2xl bg-white/70 p-4 shadow-[0_20px_60px_-15px_rgba(10,23,48,0.45)] backdrop-blur-sm sm:-mt-20 sm:p-6">
         <div className="flex flex-wrap items-center gap-2">
           {quickPicks.map((p, i) => (
             <button
@@ -108,14 +108,14 @@ export function BookingWidget() {
             <span className="grid h-8 w-8 place-items-center rounded-full bg-primary text-secondary">
               <Plane className="h-4 w-4 -rotate-45" />
             </span>
-            <span className="font-display text-base font-extrabold text-white">Flight</span>
+            <span className="font-display text-base font-extrabold text-secondary">Flight</span>
           </div>
 
           <div ref={tripTypeFieldRef} className="relative">
             <button
               type="button"
               onClick={() => setIsTripTypeOpen((open) => !open)}
-              className="flex items-center gap-1 text-sm font-semibold text-white hover:text-primary"
+              className="flex items-center gap-1 text-sm font-semibold text-secondary hover:text-primary"
             >
               {tripType === "roundtrip" ? "Round-trip" : "One-way"}{" "}
               <ChevronDown className="h-3.5 w-3.5" />
@@ -296,7 +296,7 @@ export function BookingWidget() {
 
           <button
             type="submit"
-            className="flex items-center justify-center gap-2 rounded-full bg-secondary px-8 py-4 font-display text-base font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+            className="flex items-center justify-center gap-2 rounded-full bg-secondary px-8 py-4 font-display text-base font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 h-fit"
           >
             <Search className="h-4 w-4" />
             Search flights

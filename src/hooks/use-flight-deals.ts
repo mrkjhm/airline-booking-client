@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { getFlightDeals, type FlightDeal } from "@/lib/flight-deals";
 
-export function useFlightDeals(fromLocation: string) {
+export function useFlightDeals(locations: string[]) {
   const [deals, setDeals] = useState<FlightDeal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const locationsKey = locations.join(",");
 
   useEffect(() => {
-    if (!fromLocation) {
+    if (locations.length === 0) {
       setDeals([]);
       setIsLoading(false);
       return;
@@ -15,7 +16,7 @@ export function useFlightDeals(fromLocation: string) {
     let active = true;
     setIsLoading(true);
 
-    getFlightDeals(fromLocation)
+    getFlightDeals(locations)
       .then((result) => {
         if (active) setDeals(result);
       })
@@ -29,7 +30,8 @@ export function useFlightDeals(fromLocation: string) {
     return () => {
       active = false;
     };
-  }, [fromLocation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationsKey]);
 
   return { deals, isLoading };
 }

@@ -1,37 +1,54 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ChevronRight, Compass } from "lucide-react";
-import tokyoImg from "@/assets/tokyo.jpg";
-import newyorkImg from "@/assets/newyork.jpg";
-import dubaiImg from "@/assets/dubai.jpg";
-import planeImg from "@/assets/plane.jpg";
+import cebuImg from "@/assets/place-cebu.jpg";
+import iloiloImg from "@/assets/place-iloilo.jpg";
+import japanImg from "@/assets/place-japan.jpg";
+import manilaImg from "@/assets/place-manila.jpg";
+import singaporeImg from "@/assets/place-singapore.jpg";
+import siargaoImg from "@/assets/place-siargao.jpg";
+import palawanImg from "@/assets/deal-palawan.jpg";
+import exploreImg from "@/assets/deal-explore.jpg";
 import { DealCard, type Deal } from "./DealCard";
 import { SearchFlightModal } from "./SearchFlightModal";
 import { useFlightLocations } from "@/hooks/use-flight-locations";
 import { useFlightDeals } from "@/hooks/use-flight-deals";
 import { getTodayInputValue } from "@/components/search/SearchFormFields";
 
-const PREFERRED_HUBS = ["Manila", "Cebu", "Davao", "Clark"];
-const DEAL_IMAGES = [tokyoImg, newyorkImg, dubaiImg, planeImg];
+// Exact-match photo per real destination name from the database, so each
+// card's image actually depicts the place it's advertising. Any place not
+// in this list (newly added to the DB) falls back to a generic PH photo
+// rather than showing a mismatched image.
+const CITY_IMAGES: Record<string, string> = {
+  Cebu: cebuImg,
+  "Ilo-ilo": iloiloImg,
+  Japan: japanImg,
+  Manila: manilaImg,
+  Singapore: singaporeImg,
+  Siargao: siargaoImg,
+};
+const FALLBACK_DEAL_IMAGE = palawanImg;
+
+function getDealImage(city: string) {
+  return CITY_IMAGES[city] ?? FALLBACK_DEAL_IMAGE;
+}
+
+type SelectedDeal = { fromLocation: string; toLocation: string };
+
+const ORIGIN = "Manila";
 
 export function DealsSection() {
   const locations = useFlightLocations();
-  const [selectedModalDestination, setSelectedModalDestination] = useState<string | null>(null);
+  const [selectedDeal, setSelectedDeal] = useState<SelectedDeal | null>(null);
 
-  const originTabs = useMemo(() => {
-    if (locations.length === 0) return [];
-    const preferred = PREFERRED_HUBS.filter((hub) => locations.includes(hub));
-    return preferred.length >= 2 ? preferred : locations.slice(0, 4);
-  }, [locations]);
+  // Deals only ever originate from Manila (the only PH departure hub in the
+  // database), so every card here is a Manila -> somewhere route.
+  const { deals, isLoading } = useFlightDeals([ORIGIN]);
 
-  const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null);
-  const activeOrigin = selectedOrigin ?? originTabs[0] ?? "";
-
-  const { deals, isLoading } = useFlightDeals(activeOrigin);
-
-  const displayDeals: Deal[] = deals.map((deal, index) => ({
+  const displayDeals: Deal[] = deals.map((deal) => ({
+    fromLocation: deal.fromLocation,
     city: deal.toLocation,
     price: deal.price,
-    img: DEAL_IMAGES[index % DEAL_IMAGES.length],
+    img: getDealImage(deal.toLocation),
   }));
 
   const columns: Deal[][] = [[], [], []];
@@ -39,67 +56,43 @@ export function DealsSection() {
     columns[index % 3].push(deal);
   });
 
-  // The bento layout alternates tall/short cards per column so every column's
-  // total height lines up. A "tall" card is worth 2 height units, "short" is 1;
-  // columns that fall short of the tallest column get padded with filler cards.
+  // Real destinations from the database that aren't already shown as a deal
+  // card, surfaced on the "Explore more" filler so it teases actual places
+  // instead of being purely decorative.
+  const shownCities = new Set(displayDeals.map((deal) => deal.city));
+  const otherDestinations = locations.filter(
+    (location) => location !== ORIGIN && !shownCities.has(location),
+  );
+
+  // Every column always renders exactly 2 slots (a tall one + a short one,
+  // alternating which comes first per column) so every column's total height
+  // is identical by construction — no height math, no rounding gaps. Any slot
+  // without a real deal renders a filler card sized to that exact slot.
   const isTallSlot = (columnIndex: number, rowIndex: number) =>
     columnIndex % 2 === 0 ? rowIndex === 0 : rowIndex === 1;
 
   type GridCell = { deal: Deal; tall: boolean } | { filler: true; tall: boolean };
 
-  const columnUnits = columns.map((column, columnIndex) =>
-    column.reduce((sum, _deal, rowIndex) => sum + (isTallSlot(columnIndex, rowIndex) ? 2 : 1), 0),
-  );
-  const targetUnits = Math.max(...columnUnits, 0);
-
-  const grid: GridCell[][] = columns.map((column, columnIndex) => {
-    const cells: GridCell[] = column.map((deal, rowIndex) => ({
-      deal,
-      tall: isTallSlot(columnIndex, rowIndex),
-    }));
-
-    let units = columnUnits[columnIndex];
-    let rowIndex = column.length;
-
-    while (units < targetUnits) {
+  const grid: GridCell[][] = columns.map((column, columnIndex) =>
+    Array.from({ length: 2 }, (_, rowIndex): GridCell => {
+      const deal = column[rowIndex];
       const tall = isTallSlot(columnIndex, rowIndex);
-      cells.push({ filler: true, tall });
-      units += tall ? 2 : 1;
-      rowIndex += 1;
-    }
+      return deal ? { deal, tall } : { filler: true, tall };
+    }),
+  );
 
-    return cells;
-  });
+  const isModalOpen = selectedDeal !== null;
+  const openExploreModal = () => setSelectedDeal({ fromLocation: "", toLocation: "" });
 
-  const isModalOpen = selectedModalDestination !== null;
-  const openExploreModal = () => setSelectedModalDestination("");
-
-  if (originTabs.length === 0) {
+  if (locations.length === 0) {
     return null;
   }
 
   return (
-    <section id="deals" className="mx-auto max-w-[1400px] px-6 py-10">
+    <section id="deals" className="mx-auto max-w-[1400px] px-6 py-20">
       <h2 className="text-center font-display text-3xl font-extrabold text-secondary sm:text-4xl">
-        Book cheap flights from
+        Book cheap flights from {ORIGIN}
       </h2>
-
-      <div className="mt-6 flex flex-wrap items-center justify-center gap-8">
-        {originTabs.map((origin) => (
-          <button
-            key={origin}
-            type="button"
-            onClick={() => setSelectedOrigin(origin)}
-            className={`border-b-2 pb-1 text-lg font-bold transition ${
-              origin === activeOrigin
-                ? "border-primary text-secondary"
-                : "border-transparent text-muted-foreground hover:text-secondary"
-            }`}
-          >
-            {origin}
-          </button>
-        ))}
-      </div>
 
       {isLoading && (
         <p className="mt-10 text-center text-sm font-semibold text-muted-foreground">
@@ -109,7 +102,7 @@ export function DealsSection() {
 
       {!isLoading && displayDeals.length === 0 && (
         <p className="mt-10 text-center text-sm font-semibold text-muted-foreground">
-          No upcoming flights from {activeOrigin} yet.
+          No upcoming flights from {ORIGIN} yet.
         </p>
       )}
 
@@ -121,10 +114,15 @@ export function DealsSection() {
                 if ("deal" in cell) {
                   return (
                     <DealCard
-                      key={cell.deal.city}
+                      key={`${cell.deal.fromLocation}-${cell.deal.city}`}
                       deal={cell.deal}
                       tall={cell.tall}
-                      onSelect={() => setSelectedModalDestination(cell.deal.city)}
+                      onSelect={() =>
+                        setSelectedDeal({
+                          fromLocation: cell.deal.fromLocation,
+                          toLocation: cell.deal.city,
+                        })
+                      }
                     />
                   );
                 }
@@ -134,21 +132,28 @@ export function DealsSection() {
                     key={`filler-${columnIndex}-${rowIndex}`}
                     type="button"
                     onClick={openExploreModal}
-                    className={`group relative block h-56 w-full overflow-hidden rounded-lg text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg md:h-56
+                    className={`group relative block h-56 w-full overflow-hidden rounded-lg text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg ${
+                      cell.tall ? "md:h-116" : "md:h-56"
                     }`}
                   >
                     <img
-                      src={planeImg}
+                      src={exploreImg}
                       alt="Explore more destinations"
                       loading="lazy"
                       className="h-full w-full object-cover brightness-[0.55] transition duration-700 group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/10 to-transparent" />
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
                       <Compass className="h-6 w-6 text-primary transition group-hover:scale-110" />
                       <span className="flex items-center gap-1 font-display text-lg font-extrabold text-white">
                         Explore more destinations <ChevronRight className="h-4 w-4" />
                       </span>
+                      {otherDestinations.length > 0 && (
+                        <span className="text-xs font-semibold text-white/80">
+                          {otherDestinations.slice(0, 3).join(", ")}
+                          {otherDestinations.length > 3 ? " & more" : ""}
+                        </span>
+                      )}
                     </div>
                   </button>
                 );
@@ -162,9 +167,9 @@ export function DealsSection() {
 
       <SearchFlightModal
         open={isModalOpen}
-        onClose={() => setSelectedModalDestination(null)}
-        initialFromLocation={activeOrigin}
-        initialToLocation={selectedModalDestination ?? ""}
+        onClose={() => setSelectedDeal(null)}
+        initialFromLocation={selectedDeal?.fromLocation ?? ""}
+        initialToLocation={selectedDeal?.toLocation ?? ""}
         initialDepartureDate={getTodayInputValue()}
         initialReturnDate=""
       />

@@ -6,6 +6,12 @@ export const statusStyles: Record<Booking["status"], string> = {
   CANCELLED: "bg-accent/10 text-accent",
 };
 
+export const statusBorderStyles: Record<Booking["status"], string> = {
+  PENDING: "border-l-amber-400",
+  CONFIRMED: "border-l-mint",
+  CANCELLED: "border-l-accent",
+};
+
 export const paymentStatusStyles: Record<PaymentStatus, string> = {
   PENDING: "bg-amber-100 text-amber-700",
   PAID: "bg-mint/10 text-mint",
