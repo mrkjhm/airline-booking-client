@@ -23,8 +23,9 @@ import { MetaChip } from "@/components/booking/MetaChip";
 import { useAuthSession } from "@/hooks/use-auth-session";
 import {
   cancelBooking,
-  getBookingDetail,
+  getOrderDetail,
   type BookingDetail,
+  type OrderDetail,
   type Ticket,
 } from "@/lib/booking-api";
 import {
@@ -60,7 +61,7 @@ function BookingDetailPage() {
   const session = useAuthSession();
   const navigate = Route.useNavigate();
   const { bookingId } = Route.useParams();
-  const [booking, setBooking] = useState<BookingDetail | null>(null);
+  const [order, setOrder] = useState<OrderDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -87,13 +88,13 @@ function BookingDetailPage() {
       return;
     }
 
-    getBookingDetail(id)
-      .then((result) => setBooking(result))
+    getOrderDetail(id)
+      .then((result) => setOrder(result))
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load booking"));
   }, [session, navigate, bookingId]);
 
   const handleCancelBooking = async () => {
-    if (!booking) return;
+    if (!order) return;
 
     const confirmed = window.confirm(
       "Cancel this booking? This will release the reserved seats and cancel any issued tickets.",
@@ -104,14 +105,26 @@ function BookingDetailPage() {
     setCancelError(null);
 
     try {
-      const updated = await cancelBooking(booking.id);
-      setBooking((current) => (current ? { ...current, status: updated.status } : current));
+      const updated = await Promise.all(order.bookings.map((leg) => cancelBooking(leg.id)));
+      setOrder((current) =>
+        current
+          ? {
+              ...current,
+              bookings: current.bookings.map((leg, index) => ({
+                ...leg,
+                status: updated[index].status,
+              })),
+            }
+          : current,
+      );
     } catch (err) {
       setCancelError(err instanceof Error ? err.message : "Unable to cancel booking");
     } finally {
       setIsCancelling(false);
     }
   };
+
+  const isRoundTrip = (order?.bookings.length ?? 0) > 1;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -132,14 +145,14 @@ function BookingDetailPage() {
           </div>
         )}
 
-        {!error && booking === null && (
+        {!error && order === null && (
           <p className="mt-8 text-sm text-muted-foreground">Loading booking details…</p>
         )}
 
-        {booking && (
+        {order && (
           <div className="mt-6 flex flex-col gap-6">
             <section
-              className={`rounded-2xl border border-l-4 border-border bg-card px-6 py-5 ${statusBorderStyles[booking.status]}`}
+              className={`rounded-2xl border border-l-4 border-border bg-card px-6 py-5 ${statusBorderStyles[order.status]}`}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -147,68 +160,31 @@ function BookingDetailPage() {
                     <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/15 text-secondary">
                       <PlaneTakeoff className="h-4 w-4" />
                     </span>
-                    {booking.flight
-                      ? `${booking.flight.fromLocation} → ${booking.flight.toLocation}`
-                      : `Booking #${booking.id}`}
+                    Order #{order.id}
                   </p>
 
-                  {booking.flight?.airline && (
-                    <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                      <Building2 className="h-3.5 w-3.5 shrink-0" />
-                      {booking.flight.airline.name}
-                    </p>
-                  )}
-
-                  {booking.flight && (
-                    <div className="mt-3 flex max-w-sm items-center gap-2">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-secondary">
-                          {formatDate(booking.flight.departureDateTime)}
-                        </span>
-                        <span className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          <PlaneTakeoff className="h-3 w-3" /> Departure
-                        </span>
-                      </div>
-                      <div className="flex flex-1 items-center gap-1 text-border">
-                        <span className="h-px flex-1 border-t border-dashed border-border" />
-                        <Plane className="h-3.5 w-3.5 shrink-0 text-primary" />
-                        <span className="h-px flex-1 border-t border-dashed border-border" />
-                      </div>
-                      <div className="flex flex-col text-right">
-                        <span className="text-sm font-bold text-secondary">
-                          {formatDate(booking.flight.arrivalDateTime)}
-                        </span>
-                        <span className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Arrival <PlaneLanding className="h-3 w-3" />
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
                   <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                    <MetaChip icon={Hash} label={`Booking #${booking.id}`} />
-                    <MetaChip icon={Calendar} label={`Booked ${formatDate(booking.bookingDate)}`} />
-                    <MetaChip icon={Users} label={`${booking.passengers ?? 1} passenger(s)`} />
                     <MetaChip
-                      icon={Repeat}
-                      label={booking.flightType === "ROUND_TRIP" ? "Round trip" : "One way"}
+                      icon={Users}
+                      label={`${order.bookings[0]?.passengers ?? 1} passenger(s)`}
                     />
+                    <MetaChip icon={Repeat} label={isRoundTrip ? "Round trip" : "One way"} />
                   </div>
                 </div>
 
                 <div className="flex flex-row items-center gap-3 sm:flex-col sm:items-end">
                   <span className="text-lg font-extrabold text-secondary">
-                    ₱{Number(booking.totalAmount).toLocaleString()}
+                    ₱{Number(order.totalAmount).toLocaleString()}
                   </span>
                   <span
-                    className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${statusStyles[booking.status]}`}
+                    className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${statusStyles[order.status]}`}
                   >
-                    {booking.status}
+                    {order.status}
                   </span>
                 </div>
               </div>
 
-              {booking.status !== "CANCELLED" && (
+              {order.status !== "CANCELLED" && (
                 <div className="mt-5 flex flex-col items-start gap-2 border-t border-border pt-4">
                   <button
                     type="button"
@@ -231,14 +207,14 @@ function BookingDetailPage() {
                 Payments
               </p>
 
-              {!booking.order?.payment ? (
+              {!order.payment ? (
                 <p className="mt-3 text-xs font-semibold text-muted-foreground">
                   No payment has been created for this booking yet.
                 </p>
               ) : (
                 <div className="mt-3 grid gap-3">
                   {(() => {
-                    const payment = booking.order.payment;
+                    const payment = order.payment;
 
                     return (
                       <div
@@ -266,112 +242,189 @@ function BookingDetailPage() {
               )}
             </section>
 
-            <section className="rounded-2xl border border-border bg-card px-6 py-5">
-              <p className="flex items-center gap-2 text-sm font-extrabold text-secondary">
-                <TicketIcon className="h-4 w-4 text-primary" />
-                Tickets
-              </p>
-
-              {booking.tickets.length === 0 ? (
-                <p className="mt-3 text-xs font-semibold text-muted-foreground">
-                  No tickets have been issued for this booking yet. Tickets are issued once payment
-                  is confirmed.
-                </p>
-              ) : (
-                <div className="mt-3 grid gap-3">
-                  {booking.tickets.map((ticket) => {
-                    const passenger = booking.passengerDetails.find(
-                      (candidate) => candidate.id === ticket.passengerId,
-                    );
-
-                    return (
-                      <div
-                        key={ticket.id}
-                        className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div>
-                          <p className="text-xs font-bold text-secondary">
-                            {ticket.ticketNumber}
-                            {passenger && ` · ${passenger.firstName} ${passenger.lastName}`}
-                          </p>
-                          <p className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
-                            {cabinClassLabels[ticket.cabinClass]}
-                            {ticket.seatNumber && (
-                              <span className="flex items-center gap-1">
-                                <Armchair className="h-3.5 w-3.5" />
-                                Seat {ticket.seatNumber}
-                              </span>
-                            )}
-                            ₱{Number(ticket.fare).toLocaleString()}
-                          </p>
-                        </div>
-                        <span
-                          className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${ticketStatusStyles[ticket.status]}`}
-                        >
-                          {ticket.status}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-2xl border border-border bg-card px-6 py-5">
-              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Passenger Details
-              </p>
-
-              {booking.passengerDetails.length === 0 ? (
-                <p className="mt-3 text-xs font-semibold text-muted-foreground">
-                  No passenger details saved for this booking yet.
-                </p>
-              ) : (
-                <div className="mt-3 grid gap-3">
-                  {booking.passengerDetails.map((passenger) => {
-                    const extra = parsePassengerOtherDetails(passenger.otherDetails);
-
-                    return (
-                      <div
-                        key={passenger.id}
-                        className="rounded-xl border border-border bg-muted/30 px-4 py-4"
-                      >
-                        <p className="flex items-center gap-2 text-sm font-extrabold text-secondary">
-                          <UserRound className="h-4 w-4 text-primary" />
-                          {passenger.firstName} {passenger.lastName}
-                        </p>
-                        <p className="mt-1 text-xs font-semibold text-muted-foreground">
-                          {formatPassengerCategory(passenger.passengerCategory)}
-                        </p>
-
-                        <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-                          {passenger.email && (
-                            <p className="flex items-center gap-1.5">
-                              <Mail className="h-3.5 w-3.5" />
-                              {passenger.email}
-                            </p>
-                          )}
-                          {passenger.mobileNumber && (
-                            <p className="flex items-center gap-1.5">
-                              <Phone className="h-3.5 w-3.5" />
-                              {passenger.mobileNumber}
-                            </p>
-                          )}
-                          {extra.dateOfBirth && <p>Date of birth: {extra.dateOfBirth}</p>}
-                          {extra.passportNumber && <p>Document no.: {extra.passportNumber}</p>}
-                          {passenger.baggageDetails && <p>Baggage: {passenger.baggageDetails}</p>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
+            {order.bookings.map((booking, legIndex) => (
+              <BookingLegSection
+                key={booking.id}
+                booking={booking}
+                label={isRoundTrip ? (legIndex === 0 ? "Outbound flight" : "Return flight") : null}
+              />
+            ))}
           </div>
         )}
       </main>
 
       <Footer />
     </div>
+  );
+}
+
+function BookingLegSection({ booking, label }: { booking: BookingDetail; label: string | null }) {
+  return (
+    <section
+      className={`rounded-2xl border border-l-4 border-border bg-card px-6 py-5 ${statusBorderStyles[booking.status]}`}
+    >
+      {label && (
+        <p className="mb-3 text-xs font-bold uppercase tracking-wide text-primary">{label}</p>
+      )}
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="flex items-center gap-2 text-base font-extrabold text-secondary">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/15 text-secondary">
+              <Plane className="h-3.5 w-3.5 -rotate-45" />
+            </span>
+            {booking.flight
+              ? `${booking.flight.fromLocation} → ${booking.flight.toLocation}`
+              : `Booking #${booking.id}`}
+          </p>
+
+          {booking.flight?.airline && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+              <Building2 className="h-3.5 w-3.5 shrink-0" />
+              {booking.flight.airline.name}
+            </p>
+          )}
+
+          {booking.flight && (
+            <div className="mt-3 flex max-w-sm items-center gap-2">
+              <div className="flex flex-col">
+                <span className="text-sm font-bold text-secondary">
+                  {formatDate(booking.flight.departureDateTime)}
+                </span>
+                <span className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <PlaneTakeoff className="h-3 w-3" /> Departure
+                </span>
+              </div>
+              <div className="flex flex-1 items-center gap-1 text-border">
+                <span className="h-px flex-1 border-t border-dashed border-border" />
+                <Plane className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <span className="h-px flex-1 border-t border-dashed border-border" />
+              </div>
+              <div className="flex flex-col text-right">
+                <span className="text-sm font-bold text-secondary">
+                  {formatDate(booking.flight.arrivalDateTime)}
+                </span>
+                <span className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Arrival <PlaneLanding className="h-3 w-3" />
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <MetaChip icon={Hash} label={`Booking #${booking.id}`} />
+            <MetaChip icon={Calendar} label={`Booked ${formatDate(booking.bookingDate)}`} />
+          </div>
+        </div>
+
+        <span
+          className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${statusStyles[booking.status]}`}
+        >
+          {booking.status}
+        </span>
+      </div>
+
+      <div className="mt-5 border-t border-border pt-4">
+        <p className="flex items-center gap-2 text-sm font-extrabold text-secondary">
+          <TicketIcon className="h-4 w-4 text-primary" />
+          Tickets
+        </p>
+
+        {booking.tickets.length === 0 ? (
+          <p className="mt-3 text-xs font-semibold text-muted-foreground">
+            No tickets have been issued for this booking yet. Tickets are issued once payment is
+            confirmed.
+          </p>
+        ) : (
+          <div className="mt-3 grid gap-3">
+            {booking.tickets.map((ticket) => {
+              const passenger = booking.passengerDetails.find(
+                (candidate) => candidate.id === ticket.passengerId,
+              );
+
+              return (
+                <div
+                  key={ticket.id}
+                  className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="text-xs font-bold text-secondary">
+                      {ticket.ticketNumber}
+                      {passenger && ` · ${passenger.firstName} ${passenger.lastName}`}
+                    </p>
+                    <p className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
+                      {cabinClassLabels[ticket.cabinClass]}
+                      {ticket.seatNumber && (
+                        <span className="flex items-center gap-1">
+                          <Armchair className="h-3.5 w-3.5" />
+                          Seat {ticket.seatNumber}
+                        </span>
+                      )}
+                      ₱{Number(ticket.fare).toLocaleString()}
+                    </p>
+                  </div>
+                  <span
+                    className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${ticketStatusStyles[ticket.status]}`}
+                  >
+                    {ticket.status}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-5 border-t border-border pt-4">
+        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          Passenger Details
+        </p>
+
+        {booking.passengerDetails.length === 0 ? (
+          <p className="mt-3 text-xs font-semibold text-muted-foreground">
+            No passenger details saved for this booking yet.
+          </p>
+        ) : (
+          <div className="mt-3 grid gap-3">
+            {booking.passengerDetails.map((passenger) => {
+              const extra = parsePassengerOtherDetails(passenger.otherDetails);
+
+              return (
+                <div
+                  key={passenger.id}
+                  className="rounded-xl border border-border bg-muted/30 px-4 py-4"
+                >
+                  <p className="flex items-center gap-2 text-sm font-extrabold text-secondary">
+                    <UserRound className="h-4 w-4 text-primary" />
+                    {passenger.firstName} {passenger.lastName}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                    {formatPassengerCategory(passenger.passengerCategory)}
+                  </p>
+
+                  <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                    {passenger.email && (
+                      <p className="flex items-center gap-1.5">
+                        <Mail className="h-3.5 w-3.5" />
+                        {passenger.email}
+                      </p>
+                    )}
+                    {passenger.mobileNumber && (
+                      <p className="flex items-center gap-1.5">
+                        <Phone className="h-3.5 w-3.5" />
+                        {passenger.mobileNumber}
+                      </p>
+                    )}
+                    {extra.dateOfBirth && <p>Date of birth: {extra.dateOfBirth}</p>}
+                    {extra.passportNumber && <p>Document no.: {extra.passportNumber}</p>}
+                    {passenger.baggageDetails && <p>Baggage: {passenger.baggageDetails}</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

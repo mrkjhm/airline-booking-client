@@ -24,10 +24,11 @@ import { useAuthSession } from "@/hooks/use-auth-session";
 import {
   createPayment,
   createPassenger,
-  getMyBookings,
+  getMyOrders,
   getPassengersByBooking,
   updatePassenger,
   type Booking,
+  type OrderDetail,
   type Passenger,
   type PassengerCategory,
   type Payment,
@@ -75,8 +76,8 @@ const emptyPassengerDraft = (): PassengerDraft => ({
 function MyBookingsPage() {
   const session = useAuthSession();
   const navigate = Route.useNavigate();
-  const [bookings, setBookings] = useState<Booking[] | null>(null);
-  const [expandedBookingId, setExpandedBookingId] = useState<number | null>(null);
+  const [orders, setOrders] = useState<OrderDetail[] | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null);
   const [passengersByBooking, setPassengersByBooking] = useState<Record<number, Passenger[]>>({});
   const [passengerLoadingId, setPassengerLoadingId] = useState<number | null>(null);
@@ -105,10 +106,10 @@ function MyBookingsPage() {
       return;
     }
 
-    getMyBookings()
+    getMyOrders()
       .then((result) => {
-        setBookings(result);
-        setExpandedBookingId(null);
+        setOrders(result);
+        setExpandedOrderId(null);
         setExpandedPaymentId(null);
         setPassengersByBooking({});
         setPassengerErrors({});
@@ -117,15 +118,15 @@ function MyBookingsPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load bookings"));
   }, [session, navigate]);
 
-  const refreshBookings = async () => {
-    const result = await getMyBookings();
-    setBookings(result);
+  const refreshOrders = async () => {
+    const result = await getMyOrders();
+    setOrders(result);
   };
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await refreshBookings();
+      await refreshOrders();
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to refresh bookings");
@@ -134,30 +135,37 @@ function MyBookingsPage() {
     }
   };
 
-  const togglePaymentDetails = (bookingId: number) => {
-    setExpandedPaymentId((current) => (current === bookingId ? null : bookingId));
+  const togglePaymentDetails = (orderId: number) => {
+    setExpandedPaymentId((current) => (current === orderId ? null : orderId));
   };
 
-  const togglePassengerDetails = async (bookingId: number) => {
-    if (expandedBookingId === bookingId) {
-      setExpandedBookingId(null);
+  const togglePassengerDetails = async (order: OrderDetail) => {
+    if (expandedOrderId === order.id) {
+      setExpandedOrderId(null);
       return;
     }
 
-    setExpandedBookingId(bookingId);
+    setExpandedOrderId(order.id);
 
-    if (passengersByBooking[bookingId]) return;
+    const legsToLoad = order.bookings.filter((leg) => !passengersByBooking[leg.id]);
+    if (legsToLoad.length === 0) return;
 
-    setPassengerLoadingId(bookingId);
-    setPassengerErrors((current) => ({ ...current, [bookingId]: "" }));
+    setPassengerLoadingId(order.id);
+    setPassengerErrors((current) => ({ ...current, [order.id]: "" }));
 
     try {
-      const passengers = await getPassengersByBooking(bookingId);
-      setPassengersByBooking((current) => ({ ...current, [bookingId]: passengers }));
+      const results = await Promise.all(legsToLoad.map((leg) => getPassengersByBooking(leg.id)));
+      setPassengersByBooking((current) => {
+        const next = { ...current };
+        legsToLoad.forEach((leg, index) => {
+          next[leg.id] = results[index];
+        });
+        return next;
+      });
     } catch (err) {
       setPassengerErrors((current) => ({
         ...current,
-        [bookingId]: err instanceof Error ? err.message : "Unable to load passenger details",
+        [order.id]: err instanceof Error ? err.message : "Unable to load passenger details",
       }));
     } finally {
       setPassengerLoadingId(null);
@@ -212,20 +220,20 @@ function MyBookingsPage() {
     }
   };
 
-  const handleCreatePayment = async (booking: Booking) => {
-    setPaymentSavingId(booking.id);
-    setPaymentErrors((current) => ({ ...current, [booking.id]: "" }));
+  const handleCreatePayment = async (order: OrderDetail) => {
+    setPaymentSavingId(order.id);
+    setPaymentErrors((current) => ({ ...current, [order.id]: "" }));
 
     try {
       await createPayment({
-        orderId: booking.orderId,
-        paymentMethod: paymentMethodsByBooking[booking.id] ?? "CARD",
+        orderId: order.id,
+        paymentMethod: paymentMethodsByBooking[order.id] ?? "CARD",
       });
-      await refreshBookings();
+      await refreshOrders();
     } catch (err) {
       setPaymentErrors((current) => ({
         ...current,
-        [booking.id]: err instanceof Error ? err.message : "Unable to create payment",
+        [order.id]: err instanceof Error ? err.message : "Unable to create payment",
       }));
     } finally {
       setPaymentSavingId(null);
@@ -264,11 +272,11 @@ function MyBookingsPage() {
         <div className="mt-8">
           {error && <p className="text-sm font-medium text-accent">{error}</p>}
 
-          {!error && bookings === null && (
+          {!error && orders === null && (
             <p className="text-sm text-muted-foreground">Loading your bookings…</p>
           )}
 
-          {bookings?.length === 0 && (
+          {orders?.length === 0 && (
             <div className="rounded-2xl border border-border bg-muted/40 px-6 py-14 text-center">
               <PlaneTakeoff className="mx-auto h-8 w-8 text-muted-foreground" />
               <p className="mt-3 text-sm font-semibold text-secondary">No bookings yet</p>
@@ -284,15 +292,20 @@ function MyBookingsPage() {
             </div>
           )}
 
-          {bookings && bookings.length > 0 && (
+          {orders && orders.length > 0 && (
             <ul className="flex flex-col gap-4">
-              {bookings.map((booking) => (
+              {orders.map((order) => (
                 <li
-                  key={booking.id}
-                  className={`rounded-2xl border border-l-4 border-border bg-card px-5 py-4 ${statusBorderStyles[booking.status]}`}
+                  key={order.id}
+                  className={`rounded-2xl border border-l-4 border-border bg-card px-5 py-4 ${statusBorderStyles[order.status]}`}
                 >
                   {(() => {
-                    const latestPayment = getLatestPayment(booking);
+                    const latestPayment = getLatestPayment(order);
+                    const legs = order.bookings;
+                    const primaryLeg = legs[0];
+                    const isRoundTrip = legs.some((leg) => leg.flightType === "ROUND_TRIP");
+                    const passengerCount = primaryLeg?.passengers ?? 1;
+                    const bookedDate = primaryLeg?.bookingDate ?? order.createdAt;
 
                     return (
                       <>
@@ -300,76 +313,84 @@ function MyBookingsPage() {
                           <div>
                             <Link
                               to="/my-bookings/$bookingId"
-                              params={{ bookingId: String(booking.id) }}
+                              params={{ bookingId: String(order.id) }}
                               className="flex items-center gap-2 text-sm font-bold text-secondary underline-offset-2 hover:underline"
                             >
                               <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/15 text-secondary">
                                 <Plane className="h-3.5 w-3.5 -rotate-45" />
                               </span>
-                              {booking.flight
-                                ? `${booking.flight.fromLocation} → ${booking.flight.toLocation}`
-                                : `Booking #${booking.id}`}
+                              {primaryLeg?.flight
+                                ? `${primaryLeg.flight.fromLocation} → ${primaryLeg.flight.toLocation}`
+                                : `Order #${order.id}`}
                             </Link>
-                            {booking.flight?.airline && (
+                            {primaryLeg?.flight?.airline && (
                               <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                                 <Building2 className="h-3.5 w-3.5 shrink-0" />
-                                {booking.flight.airline.name}
+                                {primaryLeg.flight.airline.name}
                               </p>
                             )}
 
-                            {booking.flight && (
-                              <div className="mt-3 flex max-w-sm items-center gap-2">
-                                <div className="flex flex-col">
-                                  <span className="text-sm font-bold text-secondary">
-                                    {formatDate(booking.flight.departureDateTime)}
-                                  </span>
-                                  <span className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                    <PlaneTakeoff className="h-3 w-3" /> Departure
-                                  </span>
+                            <div className="mt-3 flex flex-col gap-3">
+                              {legs.map((leg) => (
+                                <div key={leg.id}>
+                                  {isRoundTrip && (
+                                    <p className="mb-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                                      {leg.flight
+                                        ? `${leg.flight.fromLocation} → ${leg.flight.toLocation}`
+                                        : `Leg #${leg.id}`}
+                                    </p>
+                                  )}
+                                  {leg.flight && (
+                                    <div className="flex max-w-sm items-center gap-2">
+                                      <div className="flex flex-col">
+                                        <span className="text-sm font-bold text-secondary">
+                                          {formatDate(leg.flight.departureDateTime)}
+                                        </span>
+                                        <span className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                          <PlaneTakeoff className="h-3 w-3" /> Departure
+                                        </span>
+                                      </div>
+                                      <div className="flex flex-1 items-center gap-1 text-border">
+                                        <span className="h-px flex-1 border-t border-dashed border-border" />
+                                        <Plane className="h-3.5 w-3.5 shrink-0 -rotate-0 text-primary" />
+                                        <span className="h-px flex-1 border-t border-dashed border-border" />
+                                      </div>
+                                      <div className="flex flex-col text-right">
+                                        <span className="text-sm font-bold text-secondary">
+                                          {formatDate(leg.flight.arrivalDateTime)}
+                                        </span>
+                                        <span className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                          Arrival <PlaneLanding className="h-3 w-3" />
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
-                                <div className="flex flex-1 items-center gap-1 text-border">
-                                  <span className="h-px flex-1 border-t border-dashed border-border" />
-                                  <Plane className="h-3.5 w-3.5 shrink-0 -rotate-0 text-primary" />
-                                  <span className="h-px flex-1 border-t border-dashed border-border" />
-                                </div>
-                                <div className="flex flex-col text-right">
-                                  <span className="text-sm font-bold text-secondary">
-                                    {formatDate(booking.flight.arrivalDateTime)}
-                                  </span>
-                                  <span className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                    Arrival <PlaneLanding className="h-3 w-3" />
-                                  </span>
-                                </div>
-                              </div>
-                            )}
+                              ))}
+                            </div>
 
                             <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                              <MetaChip icon={Hash} label={`Booking #${booking.id}`} />
+                              <MetaChip icon={Hash} label={`Order #${order.id}`} />
                               <MetaChip
                                 icon={Calendar}
-                                label={`Booked ${formatDate(booking.bookingDate)}`}
+                                label={`Booked ${formatDate(bookedDate)}`}
                               />
-                              <MetaChip
-                                icon={Users}
-                                label={`${booking.passengers ?? 1} passenger(s)`}
-                              />
+                              <MetaChip icon={Users} label={`${passengerCount} passenger(s)`} />
                               <MetaChip
                                 icon={Repeat}
-                                label={
-                                  booking.flightType === "ROUND_TRIP" ? "Round trip" : "One way"
-                                }
+                                label={isRoundTrip ? "Round trip" : "One way"}
                               />
                             </div>
                           </div>
 
                           <div className="flex flex-row items-center gap-3 sm:flex-col sm:items-end">
                             <span className="text-base font-extrabold text-secondary">
-                              ₱{Number(booking.totalAmount).toLocaleString()}
+                              ₱{Number(order.totalAmount).toLocaleString()}
                             </span>
                             <span
-                              className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${statusStyles[booking.status]}`}
+                              className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${statusStyles[order.status]}`}
                             >
-                              {booking.status}
+                              {order.status}
                             </span>
                           </div>
                         </div>
@@ -377,7 +398,7 @@ function MyBookingsPage() {
                         <div className="mt-4 grid grid-cols-1 divide-y divide-border overflow-hidden rounded-xl border border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
                           <button
                             type="button"
-                            onClick={() => togglePaymentDetails(booking.id)}
+                            onClick={() => togglePaymentDetails(order.id)}
                             className="flex items-center justify-between gap-2 px-4 py-3 text-left transition hover:bg-muted/40"
                           >
                             <span className="flex items-center gap-2 text-sm font-bold text-secondary">
@@ -393,13 +414,13 @@ function MyBookingsPage() {
                             </span>
                             <ChevronDown
                               className={`h-4 w-4 shrink-0 text-muted-foreground transition ${
-                                expandedPaymentId === booking.id ? "rotate-180" : ""
+                                expandedPaymentId === order.id ? "rotate-180" : ""
                               }`}
                             />
                           </button>
                           <button
                             type="button"
-                            onClick={() => void togglePassengerDetails(booking.id)}
+                            onClick={() => void togglePassengerDetails(order)}
                             className="flex items-center justify-between gap-2 px-4 py-3 text-left transition hover:bg-muted/40"
                           >
                             <span className="flex items-center gap-2 text-sm font-bold text-secondary">
@@ -408,13 +429,13 @@ function MyBookingsPage() {
                             </span>
                             <ChevronDown
                               className={`h-4 w-4 shrink-0 text-muted-foreground transition ${
-                                expandedBookingId === booking.id ? "rotate-180" : ""
+                                expandedOrderId === order.id ? "rotate-180" : ""
                               }`}
                             />
                           </button>
                           <Link
                             to="/my-bookings/$bookingId"
-                            params={{ bookingId: String(booking.id) }}
+                            params={{ bookingId: String(order.id) }}
                             className="flex items-center justify-between gap-2 px-4 py-3 text-left transition hover:bg-muted/40"
                           >
                             <span className="flex items-center gap-2 text-sm font-bold text-secondary">
@@ -424,35 +445,50 @@ function MyBookingsPage() {
                           </Link>
                         </div>
 
-                        {expandedPaymentId === booking.id && (
+                        {expandedPaymentId === order.id && (
                           <PaymentPanel
-                            booking={booking}
+                            order={order}
                             payment={latestPayment}
-                            selectedMethod={paymentMethodsByBooking[booking.id] ?? "CARD"}
-                            isSaving={paymentSavingId === booking.id}
-                            error={paymentErrors[booking.id]}
+                            selectedMethod={paymentMethodsByBooking[order.id] ?? "CARD"}
+                            isSaving={paymentSavingId === order.id}
+                            error={paymentErrors[order.id]}
                             onMethodChange={(method) =>
                               setPaymentMethodsByBooking((current) => ({
                                 ...current,
-                                [booking.id]: method,
+                                [order.id]: method,
                               }))
                             }
-                            onCreatePayment={() => void handleCreatePayment(booking)}
+                            onCreatePayment={() => void handleCreatePayment(order)}
                           />
                         )}
 
-                        {expandedBookingId === booking.id && (
-                          <PassengerDetailsPanel
-                            booking={booking}
-                            passengers={passengersByBooking[booking.id]}
-                            isLoading={passengerLoadingId === booking.id}
-                            savingKey={passengerSavingKey}
-                            error={passengerErrors[booking.id]}
-                            onAddPassenger={(draft) => handleAddPassenger(booking, draft)}
-                            onUpdatePassenger={(passengerId, draft) =>
-                              handleUpdatePassenger(booking.id, passengerId, draft)
-                            }
-                          />
+                        {expandedOrderId === order.id && (
+                          <div className="mt-4 flex flex-col gap-4">
+                            {legs.map((leg) => (
+                              <div key={leg.id}>
+                                {isRoundTrip && (
+                                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                                    {leg.flight
+                                      ? `${leg.flight.fromLocation} → ${leg.flight.toLocation}`
+                                      : `Leg #${leg.id}`}
+                                  </p>
+                                )}
+                                <PassengerDetailsPanel
+                                  booking={leg}
+                                  passengers={passengersByBooking[leg.id]}
+                                  isLoading={
+                                    passengerLoadingId === order.id && !passengersByBooking[leg.id]
+                                  }
+                                  savingKey={passengerSavingKey}
+                                  error={passengerErrors[order.id]}
+                                  onAddPassenger={(draft) => handleAddPassenger(leg, draft)}
+                                  onUpdatePassenger={(passengerId, draft) =>
+                                    handleUpdatePassenger(leg.id, passengerId, draft)
+                                  }
+                                />
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </>
                     );
@@ -470,7 +506,7 @@ function MyBookingsPage() {
 }
 
 function PaymentPanel({
-  booking,
+  order,
   payment,
   selectedMethod,
   isSaving,
@@ -478,7 +514,7 @@ function PaymentPanel({
   onMethodChange,
   onCreatePayment,
 }: {
-  booking: Booking;
+  order: OrderDetail;
   payment?: Payment;
   selectedMethod: PaymentMethod;
   isSaving: boolean;
@@ -487,7 +523,7 @@ function PaymentPanel({
   onCreatePayment: () => void;
 }) {
   const canCreatePayment =
-    booking.status !== "CANCELLED" &&
+    order.status !== "CANCELLED" &&
     (!payment || payment.status === "FAILED" || payment.status === "CANCELLED");
 
   return (
@@ -939,8 +975,8 @@ function PassengerField({
   );
 }
 
-function getLatestPayment(booking: Booking) {
-  return booking.order?.payment ?? undefined;
+function getLatestPayment(order: OrderDetail) {
+  return order.payment ?? undefined;
 }
 
 function passengerToDraft(passenger: Passenger): PassengerDraft {

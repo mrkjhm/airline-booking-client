@@ -116,6 +116,10 @@ export type BookingDetail = Booking & {
   tickets: Ticket[];
 };
 
+export type OrderDetail = Omit<Order, "bookings"> & {
+  bookings: BookingDetail[];
+};
+
 type BookingResponse = {
   message: string;
   booking: Booking;
@@ -124,6 +128,16 @@ type BookingResponse = {
 type OrderResponse = {
   message: string;
   order: Order;
+};
+
+type OrderDetailResponse = {
+  message: string;
+  order: OrderDetail;
+};
+
+type OrdersResponse = {
+  message: string;
+  orders: OrderDetail[];
 };
 
 type BookingDetailResponse = {
@@ -170,6 +184,34 @@ export async function getBookingDetail(bookingId: number): Promise<BookingDetail
   }
 
   return data.booking;
+}
+
+export async function getMyOrders(): Promise<OrderDetail[]> {
+  const response = await authFetch("/order/my-orders");
+
+  const data = (await response.json().catch(() => ({}))) as Partial<OrdersResponse> & {
+    message?: string;
+  };
+
+  if (!response.ok || !data.orders) {
+    throw new Error(data.message ?? "Unable to load orders");
+  }
+
+  return data.orders;
+}
+
+export async function getOrderDetail(orderId: number): Promise<OrderDetail> {
+  const response = await authFetch(`/order/${orderId}`);
+
+  const data = (await response.json().catch(() => ({}))) as Partial<OrderDetailResponse> & {
+    message?: string;
+  };
+
+  if (!response.ok || !data.order) {
+    throw new Error(data.message ?? "Unable to load order");
+  }
+
+  return data.order;
 }
 
 export async function cancelBooking(bookingId: number): Promise<Booking> {
