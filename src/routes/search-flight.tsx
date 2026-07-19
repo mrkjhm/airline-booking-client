@@ -21,7 +21,8 @@ import {
   type FlightSearchResult,
 } from "@/lib/search-flight";
 import {
-  createBooking,
+  createHostedInvoice,
+  createOrder,
   createPassenger,
   createPayment,
   type Booking,
@@ -131,6 +132,7 @@ function SearchFlightPage() {
   const [passengerError, setPassengerError] = useState<string | null>(null);
   const [isSavingPassengers, setIsSavingPassengers] = useState(false);
   const [createdBookings, setCreatedBookings] = useState<Booking[]>([]);
+  const [createdOrderId, setCreatedOrderId] = useState<number | null>(null);
   const [createdPayments, setCreatedPayments] = useState<Payment[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CARD");
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -216,16 +218,14 @@ function SearchFlightPage() {
     setPassengerError(null);
 
     try {
-      const selectedFlights = [selectedOutboundFlight, selectedReturnFlight];
-      const bookings = await Promise.all(
-        selectedFlights.map((flight) =>
-          createBooking({
-            flightId: flight.id,
-            passengers: passengerForms.length,
-            flightType: "ROUND_TRIP",
-          }),
-        ),
-      );
+      const order = await createOrder({
+        flights: [
+          { flightId: selectedOutboundFlight.id, flightType: "ROUND_TRIP" },
+          { flightId: selectedReturnFlight.id, flightType: "ROUND_TRIP" },
+        ],
+        passengers: passengerForms.length,
+      });
+      const bookings = order.bookings;
 
       for (const booking of bookings) {
         await Promise.all(
@@ -250,8 +250,8 @@ function SearchFlightPage() {
       }
 
       setCreatedBookings(bookings);
+      setCreatedOrderId(order.id);
       setCreatedPayments([]);
-      setPassengerForms(buildPassengerForms(adults, children, infants));
       setCurrentStep("payment");
     } catch (err) {
       setPassengerError(err instanceof Error ? err.message : "Unable to save passenger details");
@@ -261,7 +261,7 @@ function SearchFlightPage() {
   };
 
   const handleCreatePayments = async () => {
-    if (createdBookings.length === 0) {
+    if (createdBookings.length === 0 || !createdOrderId) {
       setPaymentError("Save passenger details before creating a payment");
       setCurrentStep("passengers");
       return;
@@ -271,16 +271,18 @@ function SearchFlightPage() {
     setPaymentError(null);
 
     try {
-      const payments = await Promise.all(
-        createdBookings.map((booking) =>
-          createPayment({
-            bookingId: booking.id,
-            paymentMethod,
-          }),
-        ),
-      );
+      if (["CARD", "GCASH", "BANK_TRANSFER"].includes(paymentMethod)) {
+        const { invoiceUrl } = await createHostedInvoice(createdOrderId, paymentMethod);
+        window.location.href = invoiceUrl; // redirect to Xendit's hosted checkout
+        return; // confirmation happens after redirect back + webhook
+      }
 
-      setCreatedPayments(payments);
+      const payment = await createPayment({
+        orderId: createdOrderId,
+        paymentMethod,
+      });
+
+      setCreatedPayments([payment]);
       setCurrentStep("confirmation");
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : "Unable to create payment");
@@ -1099,7 +1101,7 @@ function ConfirmationStep({
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           {bookings.map((booking) => {
-            const payment = payments.find((item) => item.bookingId === booking.id);
+            const payment = payments.find((item) => item.orderId === booking.orderId);
 
             return (
               <div

@@ -1,4 +1,4 @@
-import { ArrowLeftRight, ChevronDown, Plane, Search, X } from "lucide-react";
+import { AlertCircle, ArrowLeftRight, ChevronDown, Plane, Search, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { CountField, SearchTextField } from "@/components/search/SearchFormFields";
@@ -125,15 +125,16 @@ export function SearchFlightModal({
 
   return (
     <div className="fixed inset-0 z-50 h-dvh w-screen overflow-y-auto bg-white">
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-linear-to-r from-primary to-amber-300 px-6 py-5 sm:px-10 lg:px-16">
-        <h1 className="font-display text-xl font-extrabold text-secondary sm:text-2xl">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-linear-to-r from-secondary to-[#0a4fa8] px-6 py-5 shadow-md sm:px-10 lg:px-16">
+        <h1 className="flex items-center gap-2 font-display text-xl font-extrabold text-white sm:text-2xl">
+          <Plane className="h-5 w-5 -rotate-45 text-primary" />
           Search Flight
         </h1>
         <button
           type="button"
           onClick={handleClose}
           aria-label="Close"
-          className="grid h-10 w-10 place-items-center rounded-full text-secondary transition hover:bg-black/10"
+          className="grid h-10 w-10 place-items-center rounded-full text-white transition hover:bg-white/15"
         >
           <X className="h-5 w-5" />
         </button>
@@ -166,33 +167,38 @@ export function SearchFlightModal({
               </button>
 
               {isTripTypeOpen && (
-                <ul className="absolute left-0 top-full z-20 mt-1 w-40 overflow-hidden  border border-border bg-white py-1 shadow-lg">
-                  {(["roundtrip", "oneway"] as const).map((type) => (
-                    <li key={type}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTripType(type);
-                          setIsTripTypeOpen(false);
-                          if (type === "oneway") {
-                            setReturnDate("");
-                          }
-                        }}
-                        className={`block w-full px-4 py-2 text-left text-base font-medium hover:bg-muted ${
-                          tripType === type ? "text-primary" : "text-[#30343b]"
-                        }`}
-                      >
-                        {type === "roundtrip" ? "Round-trip" : "One-way"}
-                      </button>
-                    </li>
-                  ))}
+                <ul className="absolute left-0 top-full z-20 mt-2 w-44 overflow-hidden rounded-lg border border-border bg-white py-1 shadow-lg">
+                  {(["roundtrip", "oneway"] as const).map((type) => {
+                    const isSelected = tripType === type;
+
+                    return (
+                      <li key={type}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTripType(type);
+                            setIsTripTypeOpen(false);
+                            if (type === "oneway") {
+                              setReturnDate("");
+                            }
+                          }}
+                          className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-base font-medium transition hover:bg-muted ${
+                            isSelected ? "text-secondary" : "text-[#30343b]"
+                          }`}
+                        >
+                          {type === "roundtrip" ? "Round-trip" : "One-way"}
+                          {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-secondary" />}
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
           </div>
 
           <div
-            className={`mt-8 flex flex-col divide-y divide-border border border-border bg-white sm:grid sm:grid-cols-2 sm:divide-x sm:divide-y-0 ${
+            className={`mt-8 flex flex-col divide-y divide-border  border border-border bg-white shadow-sm sm:grid sm:grid-cols-2 sm:divide-x sm:divide-y-0 ${
               tripType === "roundtrip" ? "lg:grid-cols-4" : "lg:grid-cols-3"
             }`}
           >
@@ -273,13 +279,18 @@ export function SearchFlightModal({
             </label>
           </div>
 
-          {error && <p className="mt-6 text-sm font-semibold text-accent">{error}</p>}
+          {error && (
+            <div className="mt-6 flex items-center gap-2 rounded-lg border border-accent/30 bg-accent/5 px-4 py-3">
+              <AlertCircle className="h-4 w-4 shrink-0 text-accent" />
+              <p className="text-sm font-semibold text-accent">{error}</p>
+            </div>
+          )}
 
           <div className="mt-10 flex justify-end">
             <button
               type="submit"
               disabled={!isFormComplete}
-              className="flex h-[72px] w-full items-center justify-center gap-2 rounded-xl bg-secondary px-8 text-xl font-extrabold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-secondary/25 sm:w-[340px]"
+              className="flex h-[72px] w-full items-center justify-center gap-2 bg-secondary px-8 text-xl font-extrabold text-white shadow-md transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-secondary/25 disabled:shadow-none sm:w-[340px]"
             >
               <Search className="h-5 w-5" />
               Search flights

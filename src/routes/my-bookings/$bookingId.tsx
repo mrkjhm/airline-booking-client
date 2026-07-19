@@ -231,33 +231,37 @@ function BookingDetailPage() {
                 Payments
               </p>
 
-              {booking.payments.length === 0 ? (
+              {!booking.order?.payment ? (
                 <p className="mt-3 text-xs font-semibold text-muted-foreground">
                   No payment has been created for this booking yet.
                 </p>
               ) : (
                 <div className="mt-3 grid gap-3">
-                  {booking.payments.map((payment) => (
-                    <div
-                      key={payment.id}
-                      className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div>
-                        <p className="text-xs font-bold text-secondary">
-                          Payment #{payment.id} · {paymentMethodLabels[payment.paymentMethod]}
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          ₱{Number(payment.amount).toLocaleString()} ·{" "}
-                          {formatDate(payment.paymentDate)}
-                        </p>
-                      </div>
-                      <span
-                        className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${paymentStatusStyles[payment.status]}`}
+                  {(() => {
+                    const payment = booking.order.payment;
+
+                    return (
+                      <div
+                        key={payment.id}
+                        className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                       >
-                        {payment.status}
-                      </span>
-                    </div>
-                  ))}
+                        <div>
+                          <p className="text-xs font-bold text-secondary">
+                            Payment #{payment.id} · {paymentMethodLabels[payment.paymentMethod]}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            ₱{Number(payment.amount).toLocaleString()} ·{" "}
+                            {formatDate(payment.paymentDate)}
+                          </p>
+                        </div>
+                        <span
+                          className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${paymentStatusStyles[payment.status]}`}
+                        >
+                          {payment.status}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </section>

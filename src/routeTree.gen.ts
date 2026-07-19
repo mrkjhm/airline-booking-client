@@ -14,6 +14,7 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MyBookingsIndexRouteImport } from './routes/my-bookings/index'
+import { Route as PaymentReturnRouteImport } from './routes/payment.return'
 import { Route as MyBookingsBookingIdRouteImport } from './routes/my-bookings/$bookingId'
 
 const SearchFlightRoute = SearchFlightRouteImport.update({
@@ -41,6 +42,11 @@ const MyBookingsIndexRoute = MyBookingsIndexRouteImport.update({
   path: '/my-bookings/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PaymentReturnRoute = PaymentReturnRouteImport.update({
+  id: '/payment/return',
+  path: '/payment/return',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MyBookingsBookingIdRoute = MyBookingsBookingIdRouteImport.update({
   id: '/my-bookings/$bookingId',
   path: '/my-bookings/$bookingId',
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/search-flight': typeof SearchFlightRoute
   '/my-bookings/$bookingId': typeof MyBookingsBookingIdRoute
+  '/payment/return': typeof PaymentReturnRoute
   '/my-bookings/': typeof MyBookingsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -61,6 +68,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/search-flight': typeof SearchFlightRoute
   '/my-bookings/$bookingId': typeof MyBookingsBookingIdRoute
+  '/payment/return': typeof PaymentReturnRoute
   '/my-bookings': typeof MyBookingsIndexRoute
 }
 export interface FileRoutesById {
@@ -70,6 +78,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/search-flight': typeof SearchFlightRoute
   '/my-bookings/$bookingId': typeof MyBookingsBookingIdRoute
+  '/payment/return': typeof PaymentReturnRoute
   '/my-bookings/': typeof MyBookingsIndexRoute
 }
 export interface FileRouteTypes {
@@ -80,6 +89,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/search-flight'
     | '/my-bookings/$bookingId'
+    | '/payment/return'
     | '/my-bookings/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -88,6 +98,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/search-flight'
     | '/my-bookings/$bookingId'
+    | '/payment/return'
     | '/my-bookings'
   id:
     | '__root__'
@@ -96,6 +107,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/search-flight'
     | '/my-bookings/$bookingId'
+    | '/payment/return'
     | '/my-bookings/'
   fileRoutesById: FileRoutesById
 }
@@ -105,6 +117,7 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   SearchFlightRoute: typeof SearchFlightRoute
   MyBookingsBookingIdRoute: typeof MyBookingsBookingIdRoute
+  PaymentReturnRoute: typeof PaymentReturnRoute
   MyBookingsIndexRoute: typeof MyBookingsIndexRoute
 }
 
@@ -145,6 +158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MyBookingsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/payment/return': {
+      id: '/payment/return'
+      path: '/payment/return'
+      fullPath: '/payment/return'
+      preLoaderRoute: typeof PaymentReturnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/my-bookings/$bookingId': {
       id: '/my-bookings/$bookingId'
       path: '/my-bookings/$bookingId'
@@ -161,6 +181,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   SearchFlightRoute: SearchFlightRoute,
   MyBookingsBookingIdRoute: MyBookingsBookingIdRoute,
+  PaymentReturnRoute: PaymentReturnRoute,
   MyBookingsIndexRoute: MyBookingsIndexRoute,
 }
 export const routeTree = rootRouteImport

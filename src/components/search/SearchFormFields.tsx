@@ -75,7 +75,7 @@ export function SearchTextField({
       </span>
 
       {options && isOpen && filteredOptions.length > 0 && (
-        <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto  border border-border bg-white py-1 shadow-lg">
+        <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-md border border-border bg-white py-1 shadow-lg">
           {filteredOptions.map((option) => (
             <li key={option}>
               <button

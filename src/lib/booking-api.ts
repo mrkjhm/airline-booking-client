@@ -17,21 +17,29 @@ export type BookingFlight = {
   airline?: { name: string; logoUrl?: string };
 };
 
+export type OrderSummary = {
+  id: number;
+  status: BookingStatus;
+  totalAmount: string;
+  payment?: Payment | null;
+};
+
 export type Booking = {
   id: number;
   flightId: number;
+  orderId: number;
   passengers?: number;
   bookingDate: string;
   flightType: FlightType;
   totalAmount: string;
   status: BookingStatus;
   flight?: BookingFlight;
-  payments?: Payment[];
+  order?: OrderSummary;
 };
 
 export type Payment = {
   id: number;
-  bookingId: number;
+  orderId: number;
   amount: string;
   paymentDate: string;
   paymentMethod: PaymentMethod;
@@ -40,14 +48,29 @@ export type Payment = {
   updatedAt?: string;
 };
 
-export type CreateBookingPayload = {
+export type Order = {
+  id: number;
+  userId?: number;
+  totalAmount: string;
+  status: BookingStatus;
+  createdAt?: string;
+  updatedAt?: string;
+  bookings: Booking[];
+  payment?: Payment | null;
+};
+
+export type CreateOrderFlight = {
   flightId: number;
-  passengers: number;
   flightType: FlightType;
 };
 
+export type CreateOrderPayload = {
+  flights: CreateOrderFlight[];
+  passengers: number;
+};
+
 export type CreatePaymentPayload = {
-  bookingId: number;
+  orderId: number;
   paymentMethod: PaymentMethod;
 };
 
@@ -88,15 +111,19 @@ export type Ticket = {
   status: TicketStatus;
 };
 
-export type BookingDetail = Omit<Booking, "payments"> & {
+export type BookingDetail = Booking & {
   passengerDetails: Passenger[];
   tickets: Ticket[];
-  payments: Payment[];
 };
 
 type BookingResponse = {
   message: string;
   booking: Booking;
+};
+
+type OrderResponse = {
+  message: string;
+  order: Order;
 };
 
 type BookingDetailResponse = {
@@ -161,8 +188,8 @@ export async function cancelBooking(bookingId: number): Promise<Booking> {
   return data.booking;
 }
 
-export async function createBooking(payload: CreateBookingPayload): Promise<Booking> {
-  const response = await authFetch("/booking", {
+export async function createOrder(payload: CreateOrderPayload): Promise<Order> {
+  const response = await authFetch("/order", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -170,15 +197,15 @@ export async function createBooking(payload: CreateBookingPayload): Promise<Book
     body: JSON.stringify(payload),
   });
 
-  const data = (await response.json().catch(() => ({}))) as Partial<BookingResponse> & {
+  const data = (await response.json().catch(() => ({}))) as Partial<OrderResponse> & {
     message?: string;
   };
 
-  if (!response.ok || !data.booking) {
-    throw new Error(data.message ?? "Unable to create booking");
+  if (!response.ok || !data.order) {
+    throw new Error(data.message ?? "Unable to create order");
   }
 
-  return data.booking;
+  return data.order;
 }
 
 export async function createPayment(payload: CreatePaymentPayload): Promise<Payment> {
@@ -256,4 +283,26 @@ export async function updatePassenger(
   }
 
   return data.passenger;
+}
+
+export async function createHostedInvoice(orderId: number, paymentMethod: PaymentMethod) {
+  const response = await authFetch("/payment/invoice", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orderId, paymentMethod }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.message ?? "Unable to start payment");
+
+  return data as { paymentId: number; invoiceUrl: string };
+}
+
+export async function getMyPayments(): Promise<Payment[]> {
+  const response = await authFetch("/payment/my-payments");
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.message ?? "Unable to load payments");
+
+  return data.payments as Payment[];
 }

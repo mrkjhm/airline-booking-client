@@ -12,6 +12,7 @@ import {
   Plane,
   PlaneLanding,
   PlaneTakeoff,
+  RefreshCw,
   Repeat,
   Users,
   UserRound,
@@ -87,6 +88,7 @@ function MyBookingsPage() {
   >({});
   const [paymentErrors, setPaymentErrors] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     document.documentElement.style.overflowY = "scroll";
@@ -118,6 +120,18 @@ function MyBookingsPage() {
   const refreshBookings = async () => {
     const result = await getMyBookings();
     setBookings(result);
+  };
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshBookings();
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to refresh bookings");
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const togglePaymentDetails = (bookingId: number) => {
@@ -204,7 +218,7 @@ function MyBookingsPage() {
 
     try {
       await createPayment({
-        bookingId: booking.id,
+        orderId: booking.orderId,
         paymentMethod: paymentMethodsByBooking[booking.id] ?? "CARD",
       });
       await refreshBookings();
@@ -223,16 +237,28 @@ function MyBookingsPage() {
       <Header />
 
       <main className="max-w-[1400px] mx-auto px-6 pb-20 pt-32">
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-secondary">
-            <PlaneTakeoff className="h-5 w-5" />
-          </span>
-          <div>
-            <h1 className="font-display text-2xl font-extrabold text-secondary">My Bookings</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              A list of all the flights you've booked with SunJet.
-            </p>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-secondary">
+              <PlaneTakeoff className="h-5 w-5" />
+            </span>
+            <div>
+              <h1 className="font-display text-2xl font-extrabold text-secondary">My Bookings</h1>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                A list of all the flights you've booked with SunJet.
+              </p>
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => void handleManualRefresh()}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-secondary transition hover:border-secondary disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
         </div>
 
         <div className="mt-8">
@@ -914,7 +940,7 @@ function PassengerField({
 }
 
 function getLatestPayment(booking: Booking) {
-  return booking.payments?.[0];
+  return booking.order?.payment ?? undefined;
 }
 
 function passengerToDraft(passenger: Passenger): PassengerDraft {
