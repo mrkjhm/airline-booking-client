@@ -172,6 +172,7 @@ export function DealsSection() {
         initialToLocation={selectedDeal?.toLocation ?? ""}
         initialDepartureDate={getTodayInputValue()}
         initialReturnDate=""
+        initialTripType="roundtrip"
       />
     </section>
   );

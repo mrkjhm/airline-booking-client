@@ -313,12 +313,14 @@ export function BookingWidget() {
           setToLocation(values.toLocation);
           setDepartureDate(values.departureDate);
           setReturnDate(values.returnDate);
+          setTripType(values.tripType);
           setIsModalOpen(false);
         }}
         initialFromLocation={fromLocation}
         initialToLocation={toLocation}
         initialDepartureDate={departureDate}
         initialReturnDate={returnDate}
+        initialTripType={tripType}
       />
     </div>
   );

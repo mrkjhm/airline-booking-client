@@ -12,6 +12,7 @@ export function SearchFlightModal({
   initialToLocation,
   initialDepartureDate,
   initialReturnDate,
+  initialTripType,
 }: {
   open: boolean;
   onClose: (values: {
@@ -19,11 +20,13 @@ export function SearchFlightModal({
     toLocation: string;
     departureDate: string;
     returnDate: string;
+    tripType: "roundtrip" | "oneway";
   }) => void;
   initialFromLocation: string;
   initialToLocation: string;
   initialDepartureDate: string;
   initialReturnDate: string;
+  initialTripType: "roundtrip" | "oneway";
 }) {
   const navigate = useNavigate();
   const locations = useFlightLocations();
@@ -36,7 +39,7 @@ export function SearchFlightModal({
   const [infants, setInfants] = useState(0);
   const [promoCode, setPromoCode] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [tripType, setTripType] = useState<"roundtrip" | "oneway">("roundtrip");
+  const [tripType, setTripType] = useState<"roundtrip" | "oneway">(initialTripType);
   const [isTripTypeOpen, setIsTripTypeOpen] = useState(false);
   const tripTypeFieldRef = useRef<HTMLDivElement>(null);
 
@@ -46,6 +49,7 @@ export function SearchFlightModal({
       setToLocation(initialToLocation);
       setDepartureDate(initialDepartureDate);
       setReturnDate(initialReturnDate);
+      setTripType(initialTripType);
       setError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -67,7 +71,7 @@ export function SearchFlightModal({
   }
 
   const handleClose = () => {
-    onClose({ fromLocation, toLocation, departureDate, returnDate });
+    onClose({ fromLocation, toLocation, departureDate, returnDate, tripType });
   };
 
   const handleSwapLocations = () => {
