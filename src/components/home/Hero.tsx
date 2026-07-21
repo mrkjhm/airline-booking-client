@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Tag } from "lucide-react";
 import heroBeachImg from "@/assets/hero-beach.jpg";
-import heroCityImg from "@/assets/hero-city.jpg";
+import heroCityImg from "@/assets/place.jpg";
 import heroPlaneImg from "@/assets/hero-plane.jpg";
 import heroCoastImg from "@/assets/hero-coast.jpg";
 import { BookingWidget } from "./BookingWidget";

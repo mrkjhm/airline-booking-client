@@ -30,6 +30,8 @@ export function DateRangeField({
   variant?: "widget" | "modal";
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [draftDeparture, setDraftDeparture] = useState(departureDate);
+  const [draftReturn, setDraftReturn] = useState(returnDate);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,26 +46,37 @@ export function DateRangeField({
   }, []);
 
   const today = parseDate(getTodayInputValue()) as Date;
-  const selectedRange: DateRange | undefined = {
-    from: parseDate(departureDate),
-    to: tripType === "roundtrip" ? parseDate(returnDate) : undefined,
+  const draftRange: DateRange | undefined = {
+    from: parseDate(draftDeparture),
+    to: tripType === "roundtrip" ? parseDate(draftReturn) : undefined,
   };
-  const selectedSingle = parseDate(departureDate);
+  const draftSingle = parseDate(draftDeparture);
+
+  const togglePicker = () => {
+    setIsOpen((open) => {
+      const next = !open;
+      if (next) {
+        setDraftDeparture(departureDate);
+        setDraftReturn(returnDate);
+      }
+      return next;
+    });
+  };
 
   const handleRangeSelect = (range: DateRange | undefined) => {
-    onChangeDeparture(range?.from ? format(range.from, "yyyy-MM-dd") : "");
-    onChangeReturn(range?.to ? format(range.to, "yyyy-MM-dd") : "");
-    if (range?.from && range?.to) {
-      setIsOpen(false);
-    }
+    setDraftDeparture(range?.from ? format(range.from, "yyyy-MM-dd") : "");
+    setDraftReturn(range?.to ? format(range.to, "yyyy-MM-dd") : "");
   };
 
   const handleSingleSelect = (date: Date | undefined) => {
-    onChangeDeparture(date ? format(date, "yyyy-MM-dd") : "");
-    onChangeReturn("");
-    if (date) {
-      setIsOpen(false);
-    }
+    setDraftDeparture(date ? format(date, "yyyy-MM-dd") : "");
+    setDraftReturn("");
+  };
+
+  const handleConfirm = () => {
+    onChangeDeparture(draftDeparture);
+    onChangeReturn(tripType === "roundtrip" ? draftReturn : "");
+    setIsOpen(false);
   };
 
   const isWidget = variant === "widget";
@@ -86,7 +99,7 @@ export function DateRangeField({
       >
         <button
           type="button"
-          onClick={() => setIsOpen((open) => !open)}
+          onClick={togglePicker}
           className={
             isWidget
               ? "flex flex-col border-t border-border px-5 py-4 text-left sm:border-l sm:border-t-0"
@@ -121,7 +134,7 @@ export function DateRangeField({
         {tripType === "roundtrip" && (
           <button
             type="button"
-            onClick={() => setIsOpen((open) => !open)}
+            onClick={togglePicker}
             className={
               isWidget
                 ? "flex flex-col border-t border-border px-5 py-4 text-left sm:border-l sm:border-t-0"
@@ -140,7 +153,9 @@ export function DateRangeField({
             {isWidget ? (
               <span
                 className={`mt-1 font-display text-base ${
-                  returnDate ? "font-extrabold text-slate-800" : "font-semibold text-muted-foreground/50"
+                  returnDate
+                    ? "font-extrabold text-slate-800"
+                    : "font-semibold text-muted-foreground/50"
                 }`}
               >
                 {formatDisplayDate(returnDate, "Returning on")}
@@ -165,8 +180,8 @@ export function DateRangeField({
               <Calendar
                 mode="range"
                 numberOfMonths={2}
-                defaultMonth={selectedRange.from ?? today}
-                selected={selectedRange}
+                defaultMonth={draftRange.from ?? today}
+                selected={draftRange}
                 onSelect={handleRangeSelect}
                 disabled={{ before: today }}
                 classNames={{
@@ -178,8 +193,8 @@ export function DateRangeField({
               <Calendar
                 mode="single"
                 numberOfMonths={2}
-                defaultMonth={selectedSingle ?? today}
-                selected={selectedSingle}
+                defaultMonth={draftSingle ?? today}
+                selected={draftSingle}
                 onSelect={handleSingleSelect}
                 disabled={{ before: today }}
                 classNames={{
@@ -193,8 +208,8 @@ export function DateRangeField({
           <div className="flex justify-end pt-2">
             <button
               type="button"
-              disabled={!departureDate || (tripType === "roundtrip" && !returnDate)}
-              onClick={() => setIsOpen(false)}
+              disabled={!draftDeparture || (tripType === "roundtrip" && !draftReturn)}
+              onClick={handleConfirm}
               className="rounded-full bg-secondary px-6 py-2 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Select dates

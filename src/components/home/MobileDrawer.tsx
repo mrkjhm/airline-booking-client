@@ -5,8 +5,8 @@ import { accountLinks, accountTiles, navItems } from "./nav-data";
 import { useAuthSession } from "@/hooks/use-auth-session";
 import { clearAuthSession, logoutUser } from "@/lib/auth-api";
 
-function getInitials(firstName: string, lastName: string) {
-  return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+function getInitials(firstName: string) {
+  return `${firstName.charAt(0)}`.toUpperCase();
 }
 
 export function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -130,7 +130,7 @@ export function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => 
               >
                 <span className="flex items-center gap-2.5">
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                    {getInitials(session.user.firstName, session.user.lastName)}
+                    {getInitials(session.user.firstName)}
                   </span>
                   <span className="text-sm font-bold text-secondary">My Account</span>
                 </span>

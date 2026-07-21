@@ -36,6 +36,7 @@ import {
 } from "@/lib/booking-api";
 import {
   formatDate,
+  formatDateParts,
   formatPassengerCategory,
   parsePassengerOtherDetails,
   paymentMethodLabels,
@@ -251,10 +252,10 @@ function MyBookingsPage() {
     <div className="min-h-screen bg-background text-foreground">
       <Header />
 
-      <main className="max-w-[1400px] mx-auto px-6 pb-20 pt-32">
+      <main className="max-w-[1400px] mx-auto px-6 pb-20 md:pt-40 pt-28">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-secondary">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-secondary md:block hidden">
               <PlaneTakeoff className="h-5 w-5" />
             </span>
             <div>
@@ -300,11 +301,11 @@ function MyBookingsPage() {
           )}
 
           {orders && orders.length > 0 && (
-            <ul className="flex flex-col gap-4">
+            <ul className="flex flex-col gap-5">
               {orders.map((order) => (
                 <li
                   key={order.id}
-                  className={`rounded-2xl border border-l-4 border-border bg-card px-5 py-4 ${statusBorderStyles[order.status]}`}
+                  className={`overflow-hidden rounded-2xl border border-l-4 border-border bg-card shadow-sm transition-shadow hover:shadow-md ${statusBorderStyles[order.status]}`}
                 >
                   {(() => {
                     const latestPayment = getLatestPayment(order);
@@ -316,187 +317,202 @@ function MyBookingsPage() {
 
                     return (
                       <>
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <Link
-                              to="/my-bookings/$bookingId"
-                              params={{ bookingId: String(order.id) }}
-                              className="flex items-center gap-2 text-sm font-bold text-secondary underline-offset-2 hover:underline"
-                            >
-                              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/15 text-secondary">
-                                <Plane className="h-3.5 w-3.5 -rotate-45" />
-                              </span>
-                              {primaryLeg?.flight
-                                ? `${primaryLeg.flight.fromLocation} → ${primaryLeg.flight.toLocation}`
-                                : `Order #${order.id}`}
-                            </Link>
-                            {primaryLeg?.flight?.airline && (
-                              <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                                <Building2 className="h-3.5 w-3.5 shrink-0" />
-                                {primaryLeg.flight.airline.name}
-                              </p>
-                            )}
-
-                            <div className="mt-3 flex flex-col gap-3">
-                              {legs.map((leg) => (
-                                <div key={leg.id}>
-                                  {isRoundTrip && (
-                                    <p className="mb-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                                      {leg.flight
-                                        ? `${leg.flight.fromLocation} → ${leg.flight.toLocation}`
-                                        : `Leg #${leg.id}`}
-                                    </p>
-                                  )}
-                                  {leg.flight && (
-                                    <div className="flex max-w-sm items-center gap-2">
-                                      <div className="flex flex-col">
-                                        <span className="text-sm font-bold text-secondary">
-                                          {formatDate(leg.flight.departureDateTime)}
-                                        </span>
-                                        <span className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                          <PlaneTakeoff className="h-3 w-3" /> Departure
-                                        </span>
-                                      </div>
-                                      <div className="flex flex-1 items-center gap-1 text-border">
-                                        <span className="h-px flex-1 border-t border-dashed border-border" />
-                                        <Plane className="h-3.5 w-3.5 shrink-0 -rotate-0 text-primary" />
-                                        <span className="h-px flex-1 border-t border-dashed border-border" />
-                                      </div>
-                                      <div className="flex flex-col text-right">
-                                        <span className="text-sm font-bold text-secondary">
-                                          {formatDate(leg.flight.arrivalDateTime)}
-                                        </span>
-                                        <span className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                          Arrival <PlaneLanding className="h-3 w-3" />
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-
-                            <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                              <MetaChip icon={Hash} label={`Order #${order.id}`} />
-                              <MetaChip
-                                icon={Calendar}
-                                label={`Booked ${formatDate(bookedDate)}`}
-                              />
-                              <MetaChip icon={Users} label={`${passengerCount} passenger(s)`} />
-                              <MetaChip
-                                icon={Repeat}
-                                label={isRoundTrip ? "Round trip" : "One way"}
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex flex-row items-center gap-3 sm:flex-col sm:items-end">
-                            <span className="text-base font-extrabold text-secondary">
-                              ₱{Number(order.totalAmount).toLocaleString()}
-                            </span>
-                            <span
-                              className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${statusStyles[order.status]}`}
-                            >
-                              {order.status}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="mt-4 grid grid-cols-1 divide-y divide-border overflow-hidden rounded-xl border border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-                          <button
-                            type="button"
-                            onClick={() => togglePaymentDetails(order.id)}
-                            className="flex items-center justify-between gap-2 px-4 py-3 text-left transition hover:bg-muted/40"
-                          >
-                            <span className="flex items-center gap-2 text-sm font-bold text-secondary">
-                              <CreditCard className="h-4 w-4 text-primary" />
-                              Payment
-                              {latestPayment && (
-                                <span
-                                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${paymentStatusStyles[latestPayment.status]}`}
-                                >
-                                  {latestPayment.status}
+                        <div className="p-5 sm:p-6">
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <Link
+                                to="/my-bookings/$bookingId"
+                                params={{ bookingId: String(order.id) }}
+                                className="group flex items-center gap-2.5"
+                              >
+                                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/15 text-secondary">
+                                  <Plane className="h-4 w-4 -rotate-45" />
                                 </span>
+                                <span className="font-display text-lg font-extrabold leading-tight text-secondary group-hover:underline underline-offset-2">
+                                  {primaryLeg?.flight
+                                    ? `${primaryLeg.flight.fromLocation} → ${primaryLeg.flight.toLocation}`
+                                    : `Order #${order.id}`}
+                                </span>
+                              </Link>
+                              {primaryLeg?.flight?.airline && (
+                                <p className="mt-1.5 flex items-center gap-1.5 pl-[46px] text-xs font-semibold text-muted-foreground">
+                                  <Building2 className="h-3.5 w-3.5 shrink-0" />
+                                  {primaryLeg.flight.airline.name}
+                                </p>
                               )}
-                            </span>
-                            <ChevronDown
-                              className={`h-4 w-4 shrink-0 text-muted-foreground transition ${
-                                expandedPaymentId === order.id ? "rotate-180" : ""
-                              }`}
-                            />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void togglePassengerDetails(order)}
-                            className="flex items-center justify-between gap-2 px-4 py-3 text-left transition hover:bg-muted/40"
-                          >
-                            <span className="flex items-center gap-2 text-sm font-bold text-secondary">
-                              <UserRound className="h-4 w-4 text-primary" />
-                              Passenger details
-                            </span>
-                            <ChevronDown
-                              className={`h-4 w-4 shrink-0 text-muted-foreground transition ${
-                                expandedOrderId === order.id ? "rotate-180" : ""
-                              }`}
-                            />
-                          </button>
-                          <Link
-                            to="/my-bookings/$bookingId"
-                            params={{ bookingId: String(order.id) }}
-                            className="flex items-center justify-between gap-2 px-4 py-3 text-left transition hover:bg-muted/40"
-                          >
-                            <span className="flex items-center gap-2 text-sm font-bold text-secondary">
-                              <ExternalLink className="h-4 w-4 text-primary" />
-                              View full details
-                            </span>
-                          </Link>
-                        </div>
+                            </div>
 
-                        {expandedPaymentId === order.id && (
-                          <PaymentPanel
-                            order={order}
-                            payment={latestPayment}
-                            selectedMethod={paymentMethodsByBooking[order.id] ?? "CARD"}
-                            isSaving={paymentSavingId === order.id}
-                            error={paymentErrors[order.id]}
-                            onMethodChange={(method) =>
-                              setPaymentMethodsByBooking((current) => ({
-                                ...current,
-                                [order.id]: method,
-                              }))
-                            }
-                            onCreatePayment={() => void handleCreatePayment(order)}
-                          />
-                        )}
+                            <div className="flex flex-row items-center gap-3 sm:flex-col sm:items-end">
+                              <span
+                                className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${statusStyles[order.status]}`}
+                              >
+                                {order.status}
+                              </span>
+                              <span className="text-xl font-extrabold text-secondary">
+                                ₱{Number(order.totalAmount).toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
 
-                        {expandedOrderId === order.id && (
-                          <div className="mt-4 flex flex-col gap-4">
+                          <div className="mt-4 flex flex-col gap-3">
                             {legs.map((leg) => (
-                              <div key={leg.id}>
+                              <div
+                                key={leg.id}
+                                className="rounded-xl border border-border/70 bg-muted/30 px-4 py-3"
+                              >
                                 {isRoundTrip && (
-                                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                                  <p className="mb-2 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                                     {leg.flight
                                       ? `${leg.flight.fromLocation} → ${leg.flight.toLocation}`
                                       : `Leg #${leg.id}`}
                                   </p>
                                 )}
-                                <PassengerDetailsPanel
-                                  booking={leg}
-                                  passengers={passengersByBooking[leg.id]}
-                                  isLoading={
-                                    passengerLoadingId === order.id && !passengersByBooking[leg.id]
-                                  }
-                                  savingKey={passengerSavingKey}
-                                  error={passengerErrors[order.id]}
-                                  onAddPassenger={(draft) => handleAddPassenger(leg, draft)}
-                                  onUpdatePassenger={(passengerId, draft) =>
-                                    handleUpdatePassenger(leg.id, passengerId, draft)
-                                  }
-                                />
+                                {leg.flight && (
+                                  <div className="flex max-w-sm items-center gap-2">
+                                    <div className="flex flex-col">
+                                      <span className="whitespace-nowrap text-sm font-bold text-secondary">
+                                        {formatDateParts(leg.flight.departureDateTime).date}
+                                      </span>
+                                      <span className="whitespace-nowrap text-sm font-bold text-secondary">
+                                        {formatDateParts(leg.flight.departureDateTime).time}
+                                      </span>
+                                      <span className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                        <PlaneTakeoff className="h-3 w-3" /> Departure
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-1 items-center gap-1 text-border">
+                                      <span className="h-px flex-1 border-t border-dashed border-border" />
+                                      <Plane className="h-3.5 w-3.5 shrink-0 text-primary" />
+                                      <span className="h-px flex-1 border-t border-dashed border-border" />
+                                    </div>
+                                    <div className="flex flex-col text-right">
+                                      <span className="whitespace-nowrap text-sm font-bold text-secondary">
+                                        {formatDateParts(leg.flight.arrivalDateTime).date}
+                                      </span>
+                                      <span className="whitespace-nowrap text-sm font-bold text-secondary">
+                                        {formatDateParts(leg.flight.arrivalDateTime).time}
+                                      </span>
+                                      <span className="mt-0.5 flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                        Arrival <PlaneLanding className="h-3 w-3" />
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
-                        )}
+
+                          <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                            <MetaChip icon={Hash} label={`Order #${order.id}`} />
+                            <MetaChip icon={Calendar} label={`Booked ${formatDate(bookedDate)}`} />
+                            <MetaChip icon={Users} label={`${passengerCount} passenger(s)`} />
+                            <MetaChip
+                              icon={Repeat}
+                              label={isRoundTrip ? "Round trip" : "One way"}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="border-t border-border">
+                          <div className="border-b border-border">
+                            <button
+                              type="button"
+                              onClick={() => togglePaymentDetails(order.id)}
+                              className="flex w-full items-center justify-between gap-2 px-5 py-3.5 text-left transition hover:bg-muted/40 active:scale-[0.99] sm:px-6"
+                            >
+                              <span className="flex items-center gap-2 text-sm font-bold text-secondary">
+                                <CreditCard className="h-4 w-4 text-primary" />
+                                Payment
+                                {latestPayment && (
+                                  <span
+                                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${paymentStatusStyles[latestPayment.status]}`}
+                                  >
+                                    {latestPayment.status}
+                                  </span>
+                                )}
+                              </span>
+                              <ChevronDown
+                                className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+                                  expandedPaymentId === order.id ? "rotate-180" : ""
+                                }`}
+                              />
+                            </button>
+                            {expandedPaymentId === order.id && (
+                              <div className="border-t border-border bg-muted/20 px-5 py-4 sm:px-6">
+                                <PaymentPanel
+                                  order={order}
+                                  payment={latestPayment}
+                                  selectedMethod={paymentMethodsByBooking[order.id] ?? "CARD"}
+                                  isSaving={paymentSavingId === order.id}
+                                  error={paymentErrors[order.id]}
+                                  onMethodChange={(method) =>
+                                    setPaymentMethodsByBooking((current) => ({
+                                      ...current,
+                                      [order.id]: method,
+                                    }))
+                                  }
+                                  onCreatePayment={() => void handleCreatePayment(order)}
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => void togglePassengerDetails(order)}
+                              className="flex w-full items-center justify-between gap-2 px-5 py-3.5 text-left transition hover:bg-muted/40 active:scale-[0.99] sm:px-6"
+                            >
+                              <span className="flex items-center gap-2 text-sm font-bold text-secondary">
+                                <UserRound className="h-4 w-4 text-primary" />
+                                Passenger details
+                              </span>
+                              <ChevronDown
+                                className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+                                  expandedOrderId === order.id ? "rotate-180" : ""
+                                }`}
+                              />
+                            </button>
+                            {expandedOrderId === order.id && (
+                              <div className="flex flex-col gap-4 border-t border-border bg-muted/20 px-5 py-4 sm:px-6">
+                                {legs.map((leg) => (
+                                  <div key={leg.id}>
+                                    {isRoundTrip && (
+                                      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                                        {leg.flight
+                                          ? `${leg.flight.fromLocation} → ${leg.flight.toLocation}`
+                                          : `Leg #${leg.id}`}
+                                      </p>
+                                    )}
+                                    <PassengerDetailsPanel
+                                      booking={leg}
+                                      passengers={passengersByBooking[leg.id]}
+                                      isLoading={
+                                        passengerLoadingId === order.id &&
+                                        !passengersByBooking[leg.id]
+                                      }
+                                      savingKey={passengerSavingKey}
+                                      error={passengerErrors[order.id]}
+                                      onAddPassenger={(draft) => handleAddPassenger(leg, draft)}
+                                      onUpdatePassenger={(passengerId, draft) =>
+                                        handleUpdatePassenger(leg.id, passengerId, draft)
+                                      }
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <Link
+                          to="/my-bookings/$bookingId"
+                          params={{ bookingId: String(order.id) }}
+                          className="flex items-center justify-start gap-1.5 border-t border-border px-5 py-3 text-sm font-bold text-secondary transition hover:bg-muted/40 active:scale-[0.99] sm:px-6"
+                        >
+                          <ExternalLink className="h-4 w-4 text-primary" />
+                          View full details
+                        </Link>
                       </>
                     );
                   })()}
@@ -534,13 +550,9 @@ function PaymentPanel({
     (!payment || payment.status === "FAILED" || payment.status === "CANCELLED");
 
   return (
-    <div className="mt-4 rounded-xl border border-border bg-muted/30 px-4 py-4">
+    <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="flex items-center gap-2 text-sm font-extrabold text-secondary">
-            <CreditCard className="h-4 w-4 text-primary" />
-            Payment
-          </p>
           {payment ? (
             <p className="mt-1 text-xs font-semibold text-muted-foreground">
               Payment #{payment.id} · {paymentMethodLabels[payment.paymentMethod]} ·{" "}
@@ -634,7 +646,7 @@ function PassengerDetailsPanel({
 }) {
   if (isLoading) {
     return (
-      <div className="mt-4 rounded-xl border border-border bg-muted/30 px-4 py-5 text-sm font-medium text-muted-foreground">
+      <div className="rounded-xl border border-border bg-white px-4 py-5 text-sm font-medium text-muted-foreground">
         Loading passenger details...
       </div>
     );
@@ -642,7 +654,7 @@ function PassengerDetailsPanel({
 
   if (error) {
     return (
-      <div className="mt-4 rounded-xl border border-accent/20 bg-accent/5 px-4 py-5 text-sm font-medium text-accent">
+      <div className="rounded-xl border border-accent/20 bg-accent/5 px-4 py-5 text-sm font-medium text-accent">
         {error}
       </div>
     );
@@ -650,7 +662,7 @@ function PassengerDetailsPanel({
 
   if (!passengers || passengers.length === 0) {
     return (
-      <div className="mt-4 rounded-xl border border-border bg-muted/30 px-4 py-5">
+      <div className="rounded-xl border border-border bg-white px-4 py-5">
         <p className="text-sm font-medium text-muted-foreground">
           No passenger details saved for this booking yet.
         </p>
@@ -671,7 +683,7 @@ function PassengerDetailsPanel({
   const canAddPassenger = booking.status === "PENDING" && currentPassengerCount < passengerLimit;
 
   return (
-    <div className="mt-4 border-t border-border pt-4">
+    <div>
       <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
         Passenger Details
       </p>
@@ -699,7 +711,7 @@ function PassengerDetailsPanel({
               onSubmit={onAddPassenger}
             />
           ) : (
-            <p className="rounded-xl border border-border bg-muted/30 px-4 py-4 text-sm font-medium text-muted-foreground">
+            <p className="rounded-xl border border-border bg-white px-4 py-4 text-sm font-medium text-muted-foreground">
               Passenger limit reached for this booking. To add more passengers, the backend needs a
               booking-change endpoint that increases the booking passenger count and reserves more
               seats.
@@ -741,7 +753,7 @@ function PassengerCard({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-muted/30 px-4 py-4">
+    <div className="rounded-xl border border-border bg-white px-4 py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="flex items-center gap-2 text-sm font-extrabold text-secondary">

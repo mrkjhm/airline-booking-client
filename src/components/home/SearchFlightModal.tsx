@@ -151,7 +151,7 @@ export function SearchFlightModal({
 
   return (
     <div className="fixed inset-0 z-50 h-dvh w-screen overflow-y-auto bg-white">
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-linear-to-r from-secondary to-[#0a4fa8] px-6 py-5 shadow-md sm:px-10 lg:px-16">
+      <div className="sticky top-0 z-40 flex items-center justify-between gap-4 bg-linear-to-r from-secondary to-[#0a4fa8] px-6 py-5 shadow-md sm:px-10 lg:px-16">
         <h1 className="flex items-center gap-2 font-display text-xl font-extrabold text-white sm:text-2xl">
           <Plane className="h-5 w-5 -rotate-45 text-primary" />
           Search Flight

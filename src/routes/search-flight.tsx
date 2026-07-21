@@ -693,24 +693,37 @@ function DateCarousel({
 }) {
   const windowDates = getDateWindow(date, 7);
   const today = getTodayInputValue();
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const selectedRef = useRef<HTMLButtonElement>(null);
 
   const shiftWindow = (direction: -1 | 1) => {
     const shifted = addDaysToInputValue(date, direction * 7);
     onDateChange(shifted < today ? today : shifted);
   };
 
+  useEffect(() => {
+    selectedRef.current?.scrollIntoView({
+      behavior: "smooth",
+      inline: "center",
+      block: "nearest",
+    });
+  }, [date]);
+
   return (
-    <div className="mt-6 flex items-center gap-2 overflow-hidden rounded-lg border border-border bg-white">
+    <div className="mt-6 flex items-stretch gap-1 rounded-lg border border-border bg-white p-1">
       <button
         type="button"
         onClick={() => shiftWindow(-1)}
         aria-label="Earlier dates"
-        className="flex w-10 shrink-0 items-center justify-center self-stretch text-muted-foreground hover:text-secondary"
+        className="flex w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted/60 hover:text-secondary"
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
 
-      <div className="grid flex-1 grid-cols-7">
+      <div
+        ref={scrollerRef}
+        className="scrollbar-none flex min-w-0 flex-1 gap-1 overflow-x-auto [-ms-overflow-style:none]"
+      >
         {windowDates.map((dateValue) => {
           const isSelected = dateValue === date;
           const isPast = dateValue < today;
@@ -718,22 +731,23 @@ function DateCarousel({
           return (
             <button
               key={dateValue}
+              ref={isSelected ? selectedRef : undefined}
               type="button"
               disabled={isPast}
               onClick={() => onDateChange(dateValue)}
-              className={`flex flex-col items-center gap-1 border-l border-border px-2 py-3 text-center first:border-l-0 ${
+              className={`flex min-w-19 flex-1 flex-col items-center gap-1 rounded-md px-2 py-3 text-center transition ${
                 isSelected ? "bg-primary" : "bg-white hover:bg-muted/60"
               } ${isPast ? "cursor-not-allowed opacity-40" : ""}`}
             >
-              <span className="text-xs font-semibold text-muted-foreground">
+              <span className="whitespace-nowrap text-[11px] font-semibold text-muted-foreground">
                 {formatWeekdayShort(dateValue)}
               </span>
-              <span className="text-xs font-bold text-[#30343b]">
+              <span className="whitespace-nowrap text-[11px] font-bold text-[#30343b]">
                 {isSelected && cheapestPrice !== null
                   ? formatPrice(String(cheapestPrice))
                   : isPast
-                    ? "Not Available"
-                    : "No Flights"}
+                    ? "Not available"
+                    : "No flights"}
               </span>
             </button>
           );
@@ -744,7 +758,7 @@ function DateCarousel({
         type="button"
         onClick={() => shiftWindow(1)}
         aria-label="Later dates"
-        className="flex w-10 shrink-0 items-center justify-center self-stretch text-muted-foreground hover:text-secondary"
+        className="flex w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted/60 hover:text-secondary"
       >
         <ChevronRight className="h-4 w-4" />
       </button>

@@ -30,6 +30,7 @@ import {
 } from "@/lib/booking-api";
 import {
   formatDate,
+  formatDateParts,
   formatPassengerCategory,
   parsePassengerOtherDetails,
   paymentMethodLabels,
@@ -288,10 +289,13 @@ function BookingLegSection({ booking, label }: { booking: BookingDetail; label: 
           {booking.flight && (
             <div className="mt-3 flex max-w-sm items-center gap-2">
               <div className="flex flex-col">
-                <span className="text-sm font-bold text-secondary">
-                  {formatDate(booking.flight.departureDateTime)}
+                <span className="whitespace-nowrap text-sm font-bold text-secondary">
+                  {formatDateParts(booking.flight.departureDateTime).date}
                 </span>
-                <span className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span className="whitespace-nowrap text-sm font-bold text-secondary">
+                  {formatDateParts(booking.flight.departureDateTime).time}
+                </span>
+                <span className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   <PlaneTakeoff className="h-3 w-3" /> Departure
                 </span>
               </div>
@@ -301,10 +305,13 @@ function BookingLegSection({ booking, label }: { booking: BookingDetail; label: 
                 <span className="h-px flex-1 border-t border-dashed border-border" />
               </div>
               <div className="flex flex-col text-right">
-                <span className="text-sm font-bold text-secondary">
-                  {formatDate(booking.flight.arrivalDateTime)}
+                <span className="whitespace-nowrap text-sm font-bold text-secondary">
+                  {formatDateParts(booking.flight.arrivalDateTime).date}
                 </span>
-                <span className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span className="whitespace-nowrap text-sm font-bold text-secondary">
+                  {formatDateParts(booking.flight.arrivalDateTime).time}
+                </span>
+                <span className="mt-0.5 flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Arrival <PlaneLanding className="h-3 w-3" />
                 </span>
               </div>

@@ -41,6 +41,19 @@ export function formatDate(value?: string | null) {
   });
 }
 
+export function formatDateParts(value?: string | null) {
+  const date = value ? new Date(value) : null;
+
+  if (!date || Number.isNaN(date.getTime())) {
+    return { date: "Date unavailable", time: "" };
+  }
+
+  return {
+    date: date.toLocaleDateString("en-PH", { dateStyle: "medium", timeZone: "Asia/Manila" }),
+    time: date.toLocaleTimeString("en-PH", { timeStyle: "short", timeZone: "Asia/Manila" }),
+  };
+}
+
 export function formatPassengerCategory(category: Passenger["passengerCategory"]) {
   if (category === "ADULT") return "Adult";
   if (category === "CHILD") return "Child";
