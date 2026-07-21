@@ -5,6 +5,8 @@ import { CountField, SearchTextField } from "@/components/search/SearchFormField
 import { DateRangeField } from "@/components/search/DateRangeField";
 import { useFlightLocations } from "@/hooks/use-flight-locations";
 
+const MAX_TRAVELERS = 3;
+
 export function SearchFlightModal({
   open,
   onClose,
@@ -42,6 +44,19 @@ export function SearchFlightModal({
   const [tripType, setTripType] = useState<"roundtrip" | "oneway">(initialTripType);
   const [isTripTypeOpen, setIsTripTypeOpen] = useState(false);
   const tripTypeFieldRef = useRef<HTMLDivElement>(null);
+  const totalTravelers = adults + children + infants;
+
+  const updateAdults = (value: number) => {
+    setAdults(Math.max(1, Math.min(value, MAX_TRAVELERS - children - infants)));
+  };
+
+  const updateChildren = (value: number) => {
+    setChildren(Math.max(0, Math.min(value, MAX_TRAVELERS - adults - infants)));
+  };
+
+  const updateInfants = (value: number) => {
+    setInfants(Math.max(0, Math.min(value, MAX_TRAVELERS - adults - children)));
+  };
 
   useEffect(() => {
     if (open) {
@@ -83,7 +98,8 @@ export function SearchFlightModal({
     fromLocation.trim() &&
     toLocation.trim() &&
     departureDate &&
-    (tripType === "oneway" || returnDate),
+    (tripType === "oneway" || returnDate) &&
+    totalTravelers <= MAX_TRAVELERS,
   );
 
   const handleSubmit = async (event: FormEvent) => {
@@ -111,17 +127,23 @@ export function SearchFlightModal({
       return;
     }
 
+    if (totalTravelers > MAX_TRAVELERS) {
+      setError(`A booking can include up to ${MAX_TRAVELERS} travelers.`);
+      return;
+    }
+
     await navigate({
       to: "/search-flight",
       search: {
         fromLocation: trimmedFromLocation,
         toLocation: trimmedToLocation,
         departureDate,
-        returnDate,
+        returnDate: tripType === "roundtrip" ? returnDate : undefined,
+        tripType,
         adults,
         children,
         infants,
-        passengers: Math.max(1, adults + children),
+        passengers: totalTravelers,
         promoCode: promoCode.trim() || undefined,
       },
     });
@@ -251,24 +273,24 @@ export function SearchFlightModal({
             <div className="flex flex-col gap-6 sm:grid sm:grid-cols-3">
               <CountField
                 label="Adults"
-                helper="12+ years"
+                helper="12+ years · total limit: 3 travelers"
                 value={adults}
                 min={1}
-                onChange={setAdults}
+                onChange={updateAdults}
               />
               <CountField
                 label="Children"
                 helper="2 - 11 years"
                 value={children}
                 min={0}
-                onChange={setChildren}
+                onChange={updateChildren}
               />
               <CountField
                 label="Infant"
                 helper="under 2 years"
                 value={infants}
                 min={0}
-                onChange={setInfants}
+                onChange={updateInfants}
               />
             </div>
 

@@ -27,8 +27,14 @@ export const paymentMethodLabels: Record<PaymentMethod, string> = {
   STRIPE: "Stripe",
 };
 
-export function formatDate(value: string) {
-  return new Date(value).toLocaleString("en-PH", {
+export function formatDate(value?: string | null) {
+  const date = value ? new Date(value) : null;
+
+  if (!date || Number.isNaN(date.getTime())) {
+    return "Date unavailable";
+  }
+
+  return date.toLocaleString("en-PH", {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: "Asia/Manila",

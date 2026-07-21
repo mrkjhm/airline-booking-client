@@ -22,7 +22,7 @@ import { Footer } from "@/components/home/Footer";
 import { MetaChip } from "@/components/booking/MetaChip";
 import { useAuthSession } from "@/hooks/use-auth-session";
 import {
-  createPayment,
+  createHostedInvoice,
   createPassenger,
   getMyOrders,
   getPassengersByBooking,
@@ -225,11 +225,18 @@ function MyBookingsPage() {
     setPaymentErrors((current) => ({ ...current, [order.id]: "" }));
 
     try {
-      await createPayment({
-        orderId: order.id,
-        paymentMethod: paymentMethodsByBooking[order.id] ?? "CARD",
-      });
-      await refreshOrders();
+      const paymentMethod = paymentMethodsByBooking[order.id] ?? "CARD";
+
+      if (
+        paymentMethod !== "CARD" &&
+        paymentMethod !== "GCASH" &&
+        paymentMethod !== "BANK_TRANSFER"
+      ) {
+        throw new Error("Select Card, GCash, or Bank transfer to continue to Xendit payment.");
+      }
+
+      const { invoiceUrl } = await createHostedInvoice(order.id, paymentMethod);
+      window.location.assign(invoiceUrl);
     } catch (err) {
       setPaymentErrors((current) => ({
         ...current,
@@ -591,8 +598,6 @@ function PaymentPanel({
             <option value="CARD">Card</option>
             <option value="GCASH">GCash</option>
             <option value="BANK_TRANSFER">Bank transfer</option>
-            <option value="CASH">Cash</option>
-            <option value="STRIPE">Stripe</option>
           </select>
           <button
             type="button"

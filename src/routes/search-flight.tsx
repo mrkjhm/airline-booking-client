@@ -36,6 +36,7 @@ import { Header } from "@/components/home/Header";
 type SearchFlightRouteSearch = {
   fromLocation?: string;
   toLocation?: string;
+  tripType?: "roundtrip" | "oneway";
   departureDate?: string;
   returnDate?: string;
   passengers?: number;
@@ -49,6 +50,7 @@ export const Route = createFileRoute("/search-flight")({
   validateSearch: (search: Record<string, unknown>): SearchFlightRouteSearch => ({
     fromLocation: parseString(search.fromLocation),
     toLocation: parseString(search.toLocation),
+    tripType: parseTripType(search.tripType),
     departureDate: parseString(search.departureDate),
     returnDate: parseString(search.returnDate),
     passengers: parsePositiveInt(search.passengers),
@@ -115,6 +117,7 @@ function SearchFlightPage() {
 
   const fromLocation = search.fromLocation ?? "";
   const toLocation = search.toLocation ?? "";
+  const isRoundTrip = search.tripType !== "oneway";
   const adults = Math.max(1, search.adults ?? search.passengers ?? 1);
   const children = search.children ?? 0;
   const infants = search.infants ?? 0;
@@ -153,7 +156,11 @@ function SearchFlightPage() {
   }, [adults, children, infants, outbound.selectedId, returnLeg.selectedId]);
 
   useEffect(() => {
-    if (fromLocation && toLocation && outboundDate && returnLegDate) {
+    if (!fromLocation || !toLocation || !outboundDate) return;
+
+    if (isRoundTrip && !returnLegDate) return;
+
+    if (isRoundTrip) {
       const outboundSearchId = outbound.start();
       const returnSearchId = returnLeg.start();
 
@@ -173,15 +180,22 @@ function SearchFlightPage() {
           outbound.reject(outboundSearchId, message);
           returnLeg.reject(returnSearchId, message);
         });
+    } else {
+      void outbound.run({
+        fromLocation,
+        toLocation,
+        departureDate: outboundDate,
+        passengers: passengerCount,
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromLocation, toLocation, outboundDate, returnLegDate, passengerCount]);
+  }, [fromLocation, toLocation, isRoundTrip, outboundDate, returnLegDate, passengerCount]);
 
   const handleEditSearch = () => {
     void navigate({ to: "/" });
   };
 
-  const canContinue = Boolean(outbound.selectedId && returnLeg.selectedId);
+  const canContinue = Boolean(outbound.selectedId && (!isRoundTrip || returnLeg.selectedId));
   const selectedOutboundFlight = outbound.flights?.find(
     (flight) => flight.id === outbound.selectedId,
   );
@@ -199,8 +213,12 @@ function SearchFlightPage() {
   };
 
   const handleSavePassengers = async () => {
-    if (!selectedOutboundFlight || !selectedReturnFlight) {
-      setPassengerError("Select departing and returning flights first");
+    if (!selectedOutboundFlight || (isRoundTrip && !selectedReturnFlight)) {
+      setPassengerError(
+        isRoundTrip
+          ? "Select departing and returning flights first"
+          : "Select a departing flight first",
+      );
       setCurrentStep("flights");
       return;
     }
@@ -220,8 +238,13 @@ function SearchFlightPage() {
     try {
       const order = await createOrder({
         flights: [
-          { flightId: selectedOutboundFlight.id, flightType: "ROUND_TRIP" },
-          { flightId: selectedReturnFlight.id, flightType: "ROUND_TRIP" },
+          {
+            flightId: selectedOutboundFlight.id,
+            flightType: isRoundTrip ? "ROUND_TRIP" : "ONE_WAY",
+          },
+          ...(isRoundTrip && selectedReturnFlight
+            ? [{ flightId: selectedReturnFlight.id, flightType: "ROUND_TRIP" as const }]
+            : []),
         ],
         passengers: passengerForms.length,
       });
@@ -242,7 +265,7 @@ function SearchFlightPage() {
                 dateOfBirth: passenger.dateOfBirth || undefined,
                 passportNumber: passenger.passportNumber.trim() || undefined,
                 outboundFlightId: selectedOutboundFlight.id,
-                returnFlightId: selectedReturnFlight.id,
+                returnFlightId: selectedReturnFlight?.id,
               }),
             }),
           ),
@@ -291,7 +314,7 @@ function SearchFlightPage() {
     }
   };
 
-  if (!fromLocation || !toLocation || !outboundDate || !returnLegDate) {
+  if (!fromLocation || !toLocation || !outboundDate || (isRoundTrip && !returnLegDate)) {
     return (
       <div className="min-h-screen bg-[#f5f6f8]">
         <Header />
@@ -333,17 +356,19 @@ function SearchFlightPage() {
                   {formatShortDate(outboundDate)}
                 </p>
               </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Returning Flight
-                </p>
-                <p className="text-sm font-extrabold text-[#30343b]">
-                  {toLocation} To {fromLocation}
-                </p>
-                <p className="text-xs font-semibold text-secondary">
-                  {formatShortDate(returnLegDate)}
-                </p>
-              </div>
+              {isRoundTrip && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Returning Flight
+                  </p>
+                  <p className="text-sm font-extrabold text-[#30343b]">
+                    {toLocation} To {fromLocation}
+                  </p>
+                  <p className="text-xs font-semibold text-secondary">
+                    {formatShortDate(returnLegDate)}
+                  </p>
+                </div>
+              )}
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Guests
@@ -411,12 +436,14 @@ function SearchFlightPage() {
             >
               {routeCode(fromLocation)} - {routeCode(toLocation)}
             </a>
-            <a
-              href="#return-leg"
-              className="rounded-full border border-border px-3 py-1 hover:border-secondary"
-            >
-              {routeCode(toLocation)} - {routeCode(fromLocation)}
-            </a>
+            {isRoundTrip && (
+              <a
+                href="#return-leg"
+                className="rounded-full border border-border px-3 py-1 hover:border-secondary"
+              >
+                {routeCode(toLocation)} - {routeCode(fromLocation)}
+              </a>
+            )}
           </div>
 
           {currentStep === "flights" && (
@@ -431,15 +458,17 @@ function SearchFlightPage() {
                 state={outbound}
               />
 
-              <FlightLegSection
-                id="return-leg"
-                heading="Select your returning flight"
-                fromLocation={toLocation}
-                toLocation={fromLocation}
-                date={returnLegDate}
-                onDateChange={setReturnLegDate}
-                state={returnLeg}
-              />
+              {isRoundTrip && (
+                <FlightLegSection
+                  id="return-leg"
+                  heading="Select your returning flight"
+                  fromLocation={toLocation}
+                  toLocation={fromLocation}
+                  date={returnLegDate}
+                  onDateChange={setReturnLegDate}
+                  state={returnLeg}
+                />
+              )}
 
               <div className="mt-10 flex items-center justify-between gap-4 border-t border-border pt-8">
                 <button
@@ -826,6 +855,11 @@ function PassengerDetailsStep({
   onChange: (index: number, field: keyof PassengerForm, value: string) => void;
   onSubmit: () => void;
 }) {
+  const passengerCount = passengers.length;
+  const totalFare = [outboundFlight, returnFlight]
+    .filter((flight): flight is FlightSearchResult => Boolean(flight))
+    .reduce((total, flight) => total + Number(flight.price) * passengerCount, 0);
+
   return (
     <section className="mt-10">
       <div className="rounded-xl border border-border bg-white px-5 py-5">
@@ -840,8 +874,29 @@ function PassengerDetailsStep({
 
         {(outboundFlight || returnFlight) && (
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            {outboundFlight && <SelectedFlightSummary label="Departing" flight={outboundFlight} />}
-            {returnFlight && <SelectedFlightSummary label="Returning" flight={returnFlight} />}
+            {outboundFlight && (
+              <SelectedFlightSummary
+                label="Departing"
+                flight={outboundFlight}
+                passengerCount={passengerCount}
+              />
+            )}
+            {returnFlight && (
+              <SelectedFlightSummary
+                label="Returning"
+                flight={returnFlight}
+                passengerCount={passengerCount}
+              />
+            )}
+          </div>
+        )}
+
+        {(outboundFlight || returnFlight) && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-secondary px-4 py-3 text-white">
+            <p className="text-sm font-semibold">
+              {passengerCount} passenger{passengerCount === 1 ? "" : "s"} · Total booking fare
+            </p>
+            <p className="text-lg font-extrabold">{formatPrice(String(totalFare))}</p>
           </div>
         )}
       </div>
@@ -1144,7 +1199,18 @@ function ConfirmationStep({
   );
 }
 
-function SelectedFlightSummary({ label, flight }: { label: string; flight: FlightSearchResult }) {
+function SelectedFlightSummary({
+  label,
+  flight,
+  passengerCount,
+}: {
+  label: string;
+  flight: FlightSearchResult;
+  passengerCount: number;
+}) {
+  const fare = Number(flight.price);
+  const subtotal = fare * passengerCount;
+
   return (
     <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
       <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
@@ -1154,6 +1220,12 @@ function SelectedFlightSummary({ label, flight }: { label: string; flight: Fligh
       <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
         {formatTimeOnly(flight.departureDateTime)} · {flight.airline?.name ?? "SunJet Partner"}
       </p>
+      <div className="mt-3 flex items-end justify-between gap-3 border-t border-border pt-3">
+        <p className="text-xs font-semibold text-muted-foreground">
+          {formatPrice(flight.price)} × {passengerCount} guest{passengerCount === 1 ? "" : "s"}
+        </p>
+        <p className="text-sm font-extrabold text-secondary">{formatPrice(String(subtotal))}</p>
+      </div>
     </div>
   );
 }
@@ -1192,6 +1264,10 @@ function PassengerInput({
 
 function parseString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function parseTripType(value: unknown): "roundtrip" | "oneway" | undefined {
+  return value === "roundtrip" || value === "oneway" ? value : undefined;
 }
 
 function parsePositiveInt(value: unknown) {
