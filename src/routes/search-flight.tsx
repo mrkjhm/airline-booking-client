@@ -800,24 +800,26 @@ function FlightCard({
       }`}
     >
       <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr_auto] sm:items-center">
-        <div>
-          <p className="text-lg font-extrabold text-[#30343b]">
-            {formatTimeOnly(flight.departureDateTime)}
-          </p>
-          <p className="text-xs font-semibold text-muted-foreground">
-            Depart · {flight.fromLocation}
-          </p>
-        </div>
+        <div className="flex items-center justify-between gap-3 sm:contents">
+          <div>
+            <p className="text-lg font-extrabold text-[#30343b]">
+              {formatTimeOnly(flight.departureDateTime)}
+            </p>
+            <p className="text-xs font-semibold text-muted-foreground">
+              Depart · {flight.fromLocation}
+            </p>
+          </div>
 
-        <ArrowRight className="hidden h-4 w-4 text-primary sm:block" />
+          <ArrowRight className="h-4 w-4 shrink-0 text-primary" />
 
-        <div>
-          <p className="text-lg font-extrabold text-[#30343b]">
-            {formatTimeOnly(flight.arrivalDateTime)}
-          </p>
-          <p className="text-xs font-semibold text-muted-foreground">
-            Arrive · {flight.toLocation}
-          </p>
+          <div className="text-right sm:text-left">
+            <p className="text-lg font-extrabold text-[#30343b]">
+              {formatTimeOnly(flight.arrivalDateTime)}
+            </p>
+            <p className="text-xs font-semibold text-muted-foreground">
+              Arrive · {flight.toLocation}
+            </p>
+          </div>
         </div>
 
         <div className="text-sm text-muted-foreground">

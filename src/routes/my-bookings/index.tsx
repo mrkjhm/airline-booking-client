@@ -508,7 +508,7 @@ function MyBookingsPage() {
                         <Link
                           to="/my-bookings/$bookingId"
                           params={{ bookingId: String(order.id) }}
-                          className="flex items-center justify-start gap-1.5 border-t border-border px-5 py-3 text-sm font-bold text-secondary transition hover:bg-muted/40 active:scale-[0.99] sm:px-6"
+                          className="flex items-center justify-start gap-1.5 border-t border-border px-5 pt-3 pb-4 text-sm font-bold text-secondary transition hover:bg-muted/40 active:scale-[0.99] sm:px-6"
                         >
                           <ExternalLink className="h-4 w-4 text-primary" />
                           View full details
