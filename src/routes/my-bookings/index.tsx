@@ -24,6 +24,7 @@ import { useAuthSession } from "@/hooks/use-auth-session";
 import {
   createHostedInvoice,
   createPassenger,
+  deletePassenger,
   getMyOrders,
   getPassengersByBooking,
   updatePassenger,
@@ -214,6 +215,24 @@ function MyBookingsPage() {
       setPassengerErrors((current) => ({
         ...current,
         [bookingId]: err instanceof Error ? err.message : "Unable to update passenger",
+      }));
+      throw err;
+    } finally {
+      setPassengerSavingKey(null);
+    }
+  };
+
+  const handleDeletePassenger = async (bookingId: number, passengerId: number) => {
+    setPassengerSavingKey(`delete-${passengerId}`);
+    setPassengerErrors((current) => ({ ...current, [bookingId]: "" }));
+
+    try {
+      await deletePassenger(passengerId);
+      await refreshPassengers(bookingId);
+    } catch (err) {
+      setPassengerErrors((current) => ({
+        ...current,
+        [bookingId]: err instanceof Error ? err.message : "Unable to remove passenger",
       }));
       throw err;
     } finally {
@@ -497,6 +516,9 @@ function MyBookingsPage() {
                                       onUpdatePassenger={(passengerId, draft) =>
                                         handleUpdatePassenger(leg.id, passengerId, draft)
                                       }
+                                      onDeletePassenger={(passengerId) =>
+                                        handleDeletePassenger(leg.id, passengerId)
+                                      }
                                     />
                                   </div>
                                 ))}
@@ -635,6 +657,7 @@ function PassengerDetailsPanel({
   error,
   onAddPassenger,
   onUpdatePassenger,
+  onDeletePassenger,
 }: {
   booking: Booking;
   passengers?: Passenger[];
@@ -643,6 +666,7 @@ function PassengerDetailsPanel({
   error?: string;
   onAddPassenger: (draft: PassengerDraft) => Promise<void>;
   onUpdatePassenger: (passengerId: number, draft: PassengerDraft) => Promise<void>;
+  onDeletePassenger: (passengerId: number) => Promise<void>;
 }) {
   if (isLoading) {
     return (
@@ -694,8 +718,11 @@ function PassengerDetailsPanel({
               key={passenger.id}
               passenger={passenger}
               canEdit={booking.status === "PENDING"}
-              isSaving={savingKey === `edit-${passenger.id}`}
+              isSaving={
+                savingKey === `edit-${passenger.id}` || savingKey === `delete-${passenger.id}`
+              }
               onSubmit={(draft) => onUpdatePassenger(passenger.id, draft)}
+              onDelete={() => onDeletePassenger(passenger.id)}
             />
           );
         })}
@@ -728,11 +755,13 @@ function PassengerCard({
   canEdit,
   isSaving,
   onSubmit,
+  onDelete,
 }: {
   passenger: Passenger;
   canEdit: boolean;
   isSaving: boolean;
   onSubmit: (draft: PassengerDraft) => Promise<void>;
+  onDelete: () => Promise<void>;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const extra = parsePassengerOtherDetails(passenger.otherDetails);
@@ -765,13 +794,32 @@ function PassengerCard({
           </p>
         </div>
         {canEdit && (
-          <button
-            type="button"
-            onClick={() => setIsEditing(true)}
-            className="rounded-full border border-border px-3 py-1 text-xs font-bold text-secondary transition hover:border-secondary"
-          >
-            Edit
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              disabled={isSaving}
+              className="rounded-full border border-border px-3 py-1 text-xs font-bold text-secondary transition hover:border-secondary disabled:opacity-60"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Remove ${passenger.firstName} ${passenger.lastName} from this booking?`,
+                  )
+                ) {
+                  void onDelete();
+                }
+              }}
+              disabled={isSaving}
+              className="rounded-full border border-accent/30 px-3 py-1 text-xs font-bold text-accent transition hover:bg-accent/5 disabled:opacity-60"
+            >
+              {isSaving ? "Saving..." : "Remove"}
+            </button>
+          </div>
         )}
       </div>
 

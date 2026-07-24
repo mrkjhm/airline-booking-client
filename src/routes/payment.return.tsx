@@ -47,7 +47,10 @@ function PaymentReturnPage() {
 
         if (cancelled) return;
 
-        if (match && (match.status === "PAID" || match.status === "FAILED")) {
+        if (
+          match &&
+          (match.status === "PAID" || match.status === "FAILED" || match.status === "CANCELLED")
+        ) {
           setPayment(match);
           return;
         }
@@ -78,7 +81,8 @@ function PaymentReturnPage() {
 
   const isPaid = payment?.status === "PAID";
   const isFailed = payment?.status === "FAILED";
-  const timedOut = attempts >= MAX_ATTEMPTS && !isPaid && !isFailed;
+  const isCancelled = payment?.status === "CANCELLED";
+  const timedOut = attempts >= MAX_ATTEMPTS && !isPaid && !isFailed && !isCancelled;
 
   return (
     <div className="min-h-screen bg-[#f5f6f8]">
@@ -87,7 +91,7 @@ function PaymentReturnPage() {
         <div className="max-w-md rounded-xl border border-border bg-white px-8 py-10 shadow-sm">
           {error && <p className="text-sm font-semibold text-accent">{error}</p>}
 
-          {!error && !isPaid && !isFailed && !timedOut && (
+          {!error && !isPaid && !isFailed && !isCancelled && !timedOut && (
             <>
               <Loader2 className="mx-auto h-8 w-8 animate-spin text-secondary" />
               <p className="mt-4 text-lg font-extrabold text-[#30343b]">Confirming your payment</p>
@@ -112,14 +116,18 @@ function PaymentReturnPage() {
             </>
           )}
 
-          {(isFailed || timedOut) && (
+          {(isFailed || isCancelled || timedOut) && (
             <>
               <XCircle className="mx-auto h-10 w-10 text-accent" />
               <p className="mt-4 text-lg font-extrabold text-[#30343b]">
-                {isFailed ? "Payment failed" : "Still processing"}
+                {isFailed
+                  ? "Payment failed"
+                  : isCancelled
+                    ? "Payment cancelled"
+                    : "Still processing"}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {isFailed
+                {isFailed || isCancelled
                   ? "The payment was not completed. You can try again."
                   : "This is taking longer than expected. Check your bookings later — you'll be notified once confirmed."}
               </p>

@@ -16,8 +16,8 @@ export function UtilityBar({ scrolled }: { scrolled: boolean }) {
         <div className="flex min-w-0 items-center gap-3">
           <Info className="h-4 w-4 shrink-0 text-primary" />
           <p className="truncate">
-            <span className="font-bold">Travel Advisory:</span> Book by July 20 to lock in seat sale
-            fares.
+            <span className="font-bold">Travel Advisory:</span> Book by August 15 to lock in SkyWing
+            Airways promo fares.
           </p>
           <div className="flex shrink-0 items-center gap-1 pl-1">
             <button

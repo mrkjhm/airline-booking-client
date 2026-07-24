@@ -327,6 +327,22 @@ export async function updatePassenger(
   return data.passenger;
 }
 
+export async function deletePassenger(passengerId: number): Promise<Passenger> {
+  const response = await authFetch(`/passenger/${passengerId}`, {
+    method: "DELETE",
+  });
+
+  const data = (await response.json().catch(() => ({}))) as Partial<PassengerResponse> & {
+    message?: string;
+  };
+
+  if (!response.ok || !data.passenger) {
+    throw new Error(data.message ?? "Unable to remove passenger");
+  }
+
+  return data.passenger;
+}
+
 export async function createHostedInvoice(orderId: number, paymentMethod: PaymentMethod) {
   const response = await authFetch("/payment/invoice", {
     method: "POST",

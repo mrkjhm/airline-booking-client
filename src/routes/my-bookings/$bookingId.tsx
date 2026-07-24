@@ -98,7 +98,7 @@ function BookingDetailPage() {
     if (!order) return;
 
     const confirmed = window.confirm(
-      "Cancel this booking? This will release the reserved seats and cancel any issued tickets.",
+      "Cancel this pending order? This will release the reserved seats for all of its flights.",
     );
     if (!confirmed) return;
 
@@ -106,18 +106,10 @@ function BookingDetailPage() {
     setCancelError(null);
 
     try {
-      const updated = await Promise.all(order.bookings.map((leg) => cancelBooking(leg.id)));
-      setOrder((current) =>
-        current
-          ? {
-              ...current,
-              bookings: current.bookings.map((leg, index) => ({
-                ...leg,
-                status: updated[index].status,
-              })),
-            }
-          : current,
-      );
+      // Cancelling one leg cancels the whole pending order in the API. Calling every
+      // leg would make the second request fail with "already cancelled".
+      await cancelBooking(order.bookings[0].id);
+      setOrder(await getOrderDetail(order.id));
     } catch (err) {
       setCancelError(err instanceof Error ? err.message : "Unable to cancel booking");
     } finally {
@@ -185,7 +177,7 @@ function BookingDetailPage() {
                 </div>
               </div>
 
-              {order.status !== "CANCELLED" && (
+              {order.status === "PENDING" && (
                 <div className="mt-5 flex flex-col items-start gap-2 border-t border-border pt-4">
                   <button
                     type="button"
