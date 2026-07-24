@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
-import { Plane, X } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { Eye, EyeOff, Plane, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,43 +16,22 @@ export const Route = createFileRoute("/login")({
 const BG_IMAGE =
   "https://images.pexels.com/photos/28628306/pexels-photo-28628306.jpeg?auto=compress&cs=tinysrgb&h=1200&w=2000";
 
-function GoogleIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4">
-      <path
-        fill="#4285F4"
-        d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.53 5.53 0 0 1-2.4 3.63v3.02h3.88c2.27-2.09 3.57-5.17 3.57-8.84Z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 24c3.24 0 5.96-1.07 7.95-2.9l-3.88-3a7.4 7.4 0 0 1-11-3.9H.99v3.11A12 12 0 0 0 12 24Z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.07 14.2a7.2 7.2 0 0 1 0-4.4V6.69H.99a12 12 0 0 0 0 10.62l4.08-3.11Z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 4.75c1.76 0 3.34.61 4.59 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 .99 6.69l4.08 3.11A7.16 7.16 0 0 1 12 4.75Z"
-      />
-    </svg>
-  );
-}
-
-function FacebookIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4 fill-[#1877F2]">
-      <path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.09 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.7 4.53-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.61 23.09 24 18.1 24 12.07Z" />
-    </svg>
-  );
-}
-
 function LoginPage() {
   const navigate = Route.useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState<Partial<Record<"email" | "password", string>>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.style.scrollbarGutter;
+    root.style.scrollbarGutter = "auto";
+    return () => {
+      root.style.scrollbarGutter = previous;
+    };
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -117,43 +96,9 @@ function LoginPage() {
         </div>
 
         <div className="px-8 py-8">
-          <h1 className="mb-4 text-center text-base font-bold text-secondary">
+          <h1 className="mb-6 text-center text-base font-bold text-secondary">
             Sign in with your GetMore account
           </h1>
-
-          <div className="flex flex-col gap-3">
-            <button
-              type="button"
-              className="flex h-11 items-center justify-center gap-2 rounded-md border border-border bg-muted text-sm font-semibold text-secondary/60 transition hover:bg-muted/70"
-            >
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-secondary text-[9px] font-bold text-white">
-                GM
-              </span>
-              Sign in with GetMore
-            </button>
-            <button
-              type="button"
-              className="flex h-11 items-center justify-center gap-2 rounded-md border border-border bg-white text-sm font-semibold text-secondary transition hover:bg-muted"
-            >
-              <GoogleIcon />
-              Sign in with Google
-            </button>
-            <button
-              type="button"
-              className="flex h-11 items-center justify-center gap-2 rounded-md border border-border bg-white text-sm font-semibold text-secondary transition hover:bg-muted"
-            >
-              <FacebookIcon />
-              Sign in with Facebook
-            </button>
-          </div>
-
-          <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Or
-            </span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
 
           <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
             <div>
@@ -179,18 +124,28 @@ function LoginPage() {
               <Label htmlFor="password" className="text-sm font-bold text-secondary">
                 Password
               </Label>
-              <Input
-                id="password"
-                type="password"
-                value={form.password}
-                onChange={(e) => {
-                  setForm((current) => ({ ...current, password: e.target.value }));
-                  setErrors((current) => ({ ...current, password: undefined }));
-                  setSubmitError(null);
-                }}
-                className={`mt-1.5 h-11 ${errors.password ? "border-accent focus-visible:ring-accent" : ""}`}
-                aria-invalid={!!errors.password}
-              />
+              <div className="relative mt-1.5">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={(e) => {
+                    setForm((current) => ({ ...current, password: e.target.value }));
+                    setErrors((current) => ({ ...current, password: undefined }));
+                    setSubmitError(null);
+                  }}
+                  className={`h-11 pr-10 ${errors.password ? "border-accent focus-visible:ring-accent" : ""}`}
+                  aria-invalid={!!errors.password}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-secondary"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               {errors.password && <FieldError message={errors.password} />}
             </div>
 
