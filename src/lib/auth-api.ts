@@ -155,12 +155,20 @@ export async function restoreAuthSession() {
 }
 
 export async function authFetch(input: string, init: RequestInit = {}) {
-  const request = () =>
-    fetch(`${API_BASE_URL}${input}`, {
+  const request = () => {
+    const headers = new Headers(init.headers);
+    const accessToken = getStoredAuthSession()?.accessToken;
+
+    if (accessToken && !headers.has("Authorization")) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+    }
+
+    return fetch(`${API_BASE_URL}${input}`, {
       ...init,
       credentials: "include",
-      headers: init.headers,
+      headers,
     });
+  };
 
   let response = await request();
 
