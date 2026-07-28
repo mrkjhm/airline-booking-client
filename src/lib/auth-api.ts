@@ -124,18 +124,26 @@ export async function getCurrentUser() {
 }
 
 export async function restoreAuthSession() {
+  const storedSession = getStoredAuthSession();
+
   try {
     const user = await getCurrentUser();
-    const session = getStoredAuthSession();
 
     persistAuthSession({
       message: "Session restored",
       user,
-      accessToken: session?.accessToken,
+      accessToken: storedSession?.accessToken,
     });
 
     return getStoredAuthSession();
   } catch {
+    // A logged-out visitor has neither an access-token cookie nor a stored
+    // session. Do not call the refresh endpoint in that state: it can only
+    // return 401 because no httpOnly refresh-token cookie exists.
+    if (!storedSession) {
+      return null;
+    }
+
     try {
       const accessToken = await refreshAccessToken();
       const user = await getCurrentUser();
